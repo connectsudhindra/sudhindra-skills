@@ -199,6 +199,36 @@ def seed_user(cur: psycopg.Cursor, team_id: str, profile: UserProfile, rng: rand
             (prompt_id, goal, context, constraints, fmt, submitted_at),
         )
 
+        # Roughly 40% of prompts also get a synthetic LLM score, so the
+        # Scoring Comparison panel has real-looking data without needing a
+        # funded ANTHROPIC_API_KEY. Jittered close to the heuristic scores
+        # (an LLM judge and a decent heuristic should mostly agree), with
+        # occasional larger divergence -- a flat 1:1 match would misrepresent
+        # what real agreement looks like.
+        if rng.random() < 0.4:
+            llm_jitter = 15 if rng.random() < 0.15 else 6  # occasional bigger disagreement
+            llm_goal = max(0.0, min(100.0, goal + rng.uniform(-llm_jitter, llm_jitter)))
+            llm_context = max(0.0, min(100.0, context + rng.uniform(-llm_jitter, llm_jitter)))
+            llm_constraints = max(0.0, min(100.0, constraints + rng.uniform(-llm_jitter, llm_jitter)))
+            llm_format = max(0.0, min(100.0, fmt + rng.uniform(-llm_jitter, llm_jitter)))
+            cur.execute(
+                "INSERT INTO prompt_scores "
+                "(prompt_id, scoring_method, model_name, goal_score, context_score, constraints_score, "
+                "format_score, rationale, latency_ms, scored_at) "
+                "VALUES (%s, 'llm', %s, %s, %s, %s, %s, %s, %s, %s)",
+                (
+                    prompt_id,
+                    "claude-haiku-4-5-20251001 (simulated for sample data)",
+                    round(llm_goal, 2),
+                    round(llm_context, 2),
+                    round(llm_constraints, 2),
+                    round(llm_format, 2),
+                    "Simulated score for sample data -- not a real model call.",
+                    int(rng.uniform(280, 650)),
+                    submitted_at,
+                ),
+            )
+
         rolling_scores.append(round((goal + context + constraints + fmt) / 4, 2))
         if len(rolling_scores) > ROLLING_WINDOW:
             rolling_scores.pop(0)
