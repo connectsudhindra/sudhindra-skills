@@ -1,1 +1,8 @@
 node_modules
+__pycache__/
+*.pyc
+.venv/
+coach/logs/
+coach/.env
+coach/ui/dist/
+

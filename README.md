@@ -120,6 +120,10 @@ Start at [`compass`](./skills/craft/compass/SKILL.md) — it's the router, and i
 - **[`skills/toolbox/`](./skills/toolbox/README.md)** — narrow tools, kept around, not part of the plugin.
 - **[`skills/workshop/`](./skills/workshop/README.md)** — beta work, shared on purpose, promoted only once it earns it.
 
+## Prompt coaching, built in
+
+Installing this plugin also activates a GCCF (Goal/Context/Constraints/Format) prompt coach: every prompt gets scored, weak ones get a live nudge to sharpen before they burn a turn, and growth tracks through five levels — Operator, Composer, Delegator, Orchestrator, Architect. It starts working the moment the plugin installs, no setup step required. See [`coach/README.md`](./coach/README.md) for how it's built and why; [`levelset`](./skills/workshop/levelset/SKILL.md) to point it at a shared team backend; [`standing`](./skills/workshop/standing/SKILL.md) to check where you stand on demand.
+
 ## Contributing to this repo
 
 The rules for where a skill lives, how buckets and the plugin manifest stay in sync, and what a new skill owes the router, are in [`AGENTS.md`](./AGENTS.md).

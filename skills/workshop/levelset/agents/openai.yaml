@@ -1,0 +1,5 @@
+interface:
+  display_name: "Levelset"
+  short_description: "Configure the GCCF coach's backend and coaching mode"
+policy:
+  allow_implicit_invocation: false

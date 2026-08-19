@@ -1,12 +1,13 @@
 {
   "name": "sudhindra-skills",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Sudhindra Desai's agent skills for real engineering — grilling, spec/ticket flows, TDD, code review, domain modelling and more. Plug-and-play, not vibe coding.",
   "author": {
     "name": "Sudhindra Desai"
   },
   "repository": "https://github.com/sudhindradesai/sudhindra-skills",
   "license": "MIT",
+  "hooks": "./coach/hooks/hooks.json",
   "keywords": [
     "engineering",
     "skills",

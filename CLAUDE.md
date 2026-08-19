@@ -9,3 +9,5 @@ Documentation nests the same way skills do: a bucket `README.md` lists every ski
 The one skill that has to stay accurate no matter what else changes is [`compass`](./skills/craft/compass/SKILL.md) — it's the router, the single document that says which skill to reach for and how they chain together. Adding, renaming, retiring, or rewiring a user-reachable skill without going back to update `compass/SKILL.md` leaves the map wrong, which is worse than no map.
 
 To work on this repo locally without publishing anything, run `scripts/link-skills.sh`. It symlinks every skill into `~/.claude/skills` and `~/.agents/skills` so edits here take effect immediately — rerun it whenever a skill's folder name changes, or the old symlink just sits there stale.
+
+`coach/` at the root isn't a skill — it's Postgres + FastAPI + React, auto-registering hooks via `coach/hooks/hooks.json` (wired in through `.claude-plugin/plugin.json`'s `hooks` field) to score prompts and track GCCF growth. `levelset` and `standing`, under `skills/workshop/`, are its only skill-shaped surface; everything else, including why it's built the way it is, is in [`coach/README.md`](./coach/README.md).
