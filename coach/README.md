@@ -69,6 +69,8 @@ docker compose exec api python seed_sample_data.py --wipe --wipe-only   # wipe, 
 
 It talks directly to Postgres (not through the API), because backdating `submitted_at` across 28 days is what makes the trend charts worth looking at, and the real `POST /prompts` endpoint always uses `now()`. It replays the exact leveling logic from `services/level_engine.py` chronologically as it inserts each prompt, so seeded users' levels and `level_history` are what the real system would have produced, not hand-picked.
 
+Prompt text itself is generated, not templated to a target score: `build_prompt_text()` assembles a sentence from real clauses (verb, artifact, error detail, framing, scope, requirement, format ask), each included with a probability driven by that day's target "quality," then the assembled sentence is scored through the *actual* `scoring/heuristic.py` — the same function real prompts go through. So a seeded user's `dimension_feedback`, issue codes, and tips are genuine scorer output, not fabricated to match a story. The one place the seed script *does* fabricate: about 40% of prompts also get a synthetic `llm` row, jittered ±6 points from the heuristic score (±15 about 15% of the time, to simulate real disagreement) rather than a real Claude Haiku call — labeled `"claude-haiku-4-5-20251001 (simulated for sample data)"` in `model_name` and stated as simulated in `rationale`, specifically so it's never mistaken for a real model judgment if you go looking at the raw rows.
+
 ## Running the tests
 
 ```bash
@@ -83,7 +85,7 @@ pytest tests/test_level_engine.py         # needs the live Postgres above
 
 Three real constraints from Claude Code's hook system shaped every design decision here — worth reading before changing any of it.
 
-**`UserPromptSubmit` can only block by erasing the prompt and showing a reason.** There's no interactive checklist, no in-place edit, nothing richer than plain text in `reason`. So the GCCF breakdown *is* the coaching on this path (`services/coaching.py`'s `block_reason`), and "revise, or send anyway" became **resubmit the same text unchanged** (tracked by a local hash cache with a 5-minute TTL in `hooks/on_prompt_submit.py`) rather than a new command syntax to learn.
+**`UserPromptSubmit` can only block by erasing the prompt and showing a reason.** There's no interactive checklist, no in-place edit, nothing richer than plain text in `reason`. So the GCCF breakdown *is* the coaching on this path (`services/coaching.py`'s `block_reason`), and "revise, or send anyway" became **resubmit the same text unchanged** (tracked by a local hash cache with a 5-minute TTL in `hooks/on_prompt_submit.py`) rather than a new command syntax to learn. The default `block_floor` (`hooks/lib/config.py`'s `DEFAULTS`) is `35` — the same number as `WEAK_THRESHOLD` in `scoring/heuristic.py` — so out of the box, blocking only fires on a composite that would already read as "weak" on the dashboard; a prompt sitting in the "developing" band (35–64) is never interrupted, only flagged after the fact. `levelset` lets a user raise or lower that floor independently of the scorer's own thresholds.
 
 **`SessionEnd`'s total hook budget across every hook registered for it is about 1.5 seconds** — nowhere near enough for a network round trip to the API, let alone the DB work behind it. `hooks/on_session_end.py` does the only thing that fits in that budget: spawn a fully detached worker process (`hooks/lib/end_session_worker.py`) and exit in under 50ms. The worker does the real `POST /sessions/end` outside any hook timeout, with nothing waiting on it either way. Because even a detached process can be skipped entirely by a crash or a force-quit, `api/main.py` also runs a five-minute sweep that closes out any session with no prompt in the last 20 minutes, so end-of-session coaching never depends on one hook firing reliably.
 
@@ -97,6 +99,18 @@ Three real constraints from Claude Code's hook system shaped every design decisi
 
 A user's rolling average over their last 20 scored prompts (`config.ROLLING_WINDOW_SIZE`) is compared against each level's `min_score`, and they need at least 5 scored prompts (`config.MIN_SCORABLE_PROMPTS_TO_LEVEL`) before ever leaving level 1 — one good prompt shouldn't jump someone to Architect. `users.current_level` is **sticky upward-only**: a bad stretch never demotes the badge. `sessions.session_level` still captures a per-session dip independently, so a rough session is visible without being punitive.
 
+The five levels and their thresholds (`db/seed/seed_levels.sql`):
+
+| Level | Rolling composite ≥ | Description |
+| --- | --- | --- |
+| 1. Operator | 0 | Uses prompts inconsistently; burns tokens and turns re-explaining goals that were never stated. |
+| 2. Composer | 45 | Gets work done in a smarter, more efficient way — prompts carry real context and a shape for the answer. |
+| 3. Delegator | 65 | Has the four dimensions covered solo; ready to hand scoped work to an agent instead of driving every step by hand. |
+| 4. Orchestrator | 80 | Splits larger problems across delegates and supervises the result. |
+| 5. Architect | 92 | Prompts read like specs, not requests. |
+
+These thresholds and the per-dimension status thresholds below (65 = "strong", 35 = "weak") were chosen independently, as reasonable round numbers, not derived from each other or from real usage data — Delegator's `65` landing on the same number as `STRONG_THRESHOLD` is coincidence, not a coupling to rely on. **They have never been calibrated against real prompts**, only against the sample data generator's own output — expect to retune `min_score` (and `STRONG_THRESHOLD`/`WEAK_THRESHOLD` in `scoring/heuristic.py`) once real usage data exists to check them against.
+
 ## Teams
 
 Users optionally belong to a `team` (`users.team_id`, nullable — solo use needs no team at all). `GET /teams` gives cross-team comparison (member count, average level, average rolling composite); `GET /users?team_id=` and the Team Roster's team filter chips scope down to one. `GET /dashboard/trend?team_id=&days=` returns daily average scores **per GCCF dimension**, org-wide or team-scoped — the Team Roster and Teams pages plot all four as separate lines, because a single composite average hides which dimension is actually moving.
@@ -109,9 +123,35 @@ Users optionally belong to a `team` (`users.team_id`, nullable — solo use need
 - **End-of-session summaries** name the most common issue behind the session's weakest dimension.
 - **The dashboard** (`PromptHistoryTable`'s expandable rows, `DimensionBreakdown`) shows the same breakdown for any individual prompt.
 
+### The rules themselves
+
+Every dimension starts at 0 and accumulates points from a handful of independent, named checks — this is the actual list, not a paraphrase (`scoring/heuristic.py`):
+
+**Goal** (verb + artifact + length, no single check is fatal on its own):
+- `no_verb` (35 pts) — one of ~40 imperative verbs (fix, add, refactor, investigate, …) appears in the first 4 words.
+- `no_artifact` (35 pts) — a recognized artifact noun (function, file, component, …) anywhere, or any backticked code span.
+- length (30 pts full / 15 pts partial) — ≥6 words scores full; 3–5 words scores half and logs `terse`; <3 words scores zero and logs `too_short`.
+
+**Context** (does it supply what the agent can't infer):
+- `no_reference` (40 pts) — a file-path-shaped token (`src/foo/bar.py`) or a backticked identifier.
+- `no_detail` (30 pts) — an error/exception/traceback/failure keyword, or an 8+ character quoted span.
+- `no_framing` (30 pts) — starts with or contains `when/given/if/after/while `.
+
+**Constraints** (does it bound the scope):
+- `no_scope_limit` (50 pts) — one of ~20 negation-of-change phrases ("don't touch", "keep unchanged", "without modifying", …).
+- `no_requirement` (50 pts) — one of ~11 requirement words/phrases (must, should, only, within, limit, preserve, backward compat, …).
+
+**Format** (does it ask for a shape): counts hits against ~19 format-cue phrases (diff, table, JSON, "respond with", "return a", checklist, …) — 2+ hits scores 100, exactly 1 scores 60 and logs `weak_format`, 0 scores 0 and logs `no_format`.
+
+Every check is a plain substring/regex match against the lowercased prompt — no NLP, no embeddings, nothing probabilistic. That's deliberate: every point awarded traces to one named signal a human can read in the source, which is what makes a false positive fixable in one place instead of requiring a retrain. It also means it's gameable (mentioning "diff" without meaning it scores the same as meaning it) — this is a coaching nudge, not a fraud detector.
+
+**Status** on each dimension is a flat threshold on the 0–100 score: `≥65` is `strong` (no tip shown — see `DimensionFeedback.to_dict`), `35–64` is `developing`, `<35` is `weak`. The **tip** shown for a non-strong dimension is always the single highest-*weight* failing check (`top_tip` picks `max(issues, key=weight)`) — deliberately not the first check that ran, not a bulleted list of everything wrong, because one clear next step is more likely to get acted on than three.
+
 ## Progress tracking — is this person/team actually improving
 
-`GET /users/{id}/progress` and `GET /teams/{id}/progress` (`services/progress.py`, one implementation shared by both) compare a recent window of scored prompts (15) against the window before it, **per dimension** — recent average, prior average, delta, and a direction (`improving` / `flat` / `declining`, with a ±3-point band to avoid reading noise as movement). For any dimension still weak in the recent window, it also surfaces the single most common issue code and its tip, pulled from `dimension_feedback.issue_detail` (not the dimension's combined message, which can conflate two different problems). The response includes a one-line `headline` built from all of this — strongest dimension, best-moving dimension, and the weakest with its most common cause. Backs the Progress card on both `UserDetail` and `Teams`.
+`GET /users/{id}/progress` and `GET /teams/{id}/progress` (`services/progress.py`, one implementation shared by both) compare a recent window of scored prompts against the window before it, **per dimension** — recent average, prior average, delta, and a direction (`improving` / `flat` / `declining`). For any dimension still weak (`<65`, same threshold as the per-dimension `status` above) in the recent window, it also surfaces the single most common issue code and its own tip — from `dimension_feedback.issue_detail`, specifically, not the dimension's combined `message`, which would conflate two different problems into one confusing sentence if both were present. The response includes a one-line `headline` built from all of this — strongest dimension, best-moving dimension, and the weakest with its most common cause. Backs the Progress card on both `UserDetail` and `Teams`.
+
+The two numbers driving "is this movement or noise" (`WINDOW = 15`, the recent/prior split size; `_FLAT_BAND = 3.0`, the delta a direction has to clear either way to read as `improving`/`declining` rather than `flat`) are, like the leveling thresholds above, reasonable-sounding defaults, not derived from anything — and notably **not the same window** as leveling's rolling 20 (`config.ROLLING_WINDOW_SIZE`), because the two were built in separate passes with no attempt made to reconcile them. That's a real inconsistency, not a design choice: leveling asks "what's true right now," progress asks "did the last stretch differ from the one before," and there's no principled reason those need different sample sizes — they just do, today. Worth unifying, or at least deciding deliberately, before trusting either number too far.
 
 ## Sessions
 
