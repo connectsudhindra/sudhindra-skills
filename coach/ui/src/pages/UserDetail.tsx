@@ -1,13 +1,15 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { api } from "../api/client";
 import { GCCFRadar } from "../components/GCCFRadar";
 import { LevelBadge } from "../components/LevelBadge";
+import { ProgressCard } from "../components/ProgressCard";
 import { PromptHistoryTable } from "../components/PromptHistoryTable";
-import { ScoreTrend } from "../components/ScoreTrend";
+import { TrendChart } from "../components/TrendChart";
 import type {
   CoachingFeedback,
   Prompt,
+  SessionSummary,
   UserDetail as UserDetailData,
 } from "../types";
 
@@ -19,6 +21,7 @@ import type {
 export function UserDetailView({ userId, showAdminHint = true }: { userId: string; showAdminHint?: boolean }) {
   const [detail, setDetail] = useState<UserDetailData | null>(null);
   const [prompts, setPrompts] = useState<Prompt[] | null>(null);
+  const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [feedback, setFeedback] = useState<CoachingFeedback[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -28,11 +31,13 @@ export function UserDetailView({ userId, showAdminHint = true }: { userId: strin
     Promise.all([
       api.getUserDetail(userId),
       api.getUserPrompts(userId, 50, 0),
+      api.getUserSessions(userId).catch(() => []),
       api.getUserFeedback(userId).catch(() => []),
     ])
-      .then(([d, p, f]) => {
+      .then(([d, p, s, f]) => {
         setDetail(d);
         setPrompts(p);
+        setSessions(s);
         setFeedback(f);
       })
       .catch(() => setError("Could not load this user."));
@@ -51,6 +56,7 @@ export function UserDetailView({ userId, showAdminHint = true }: { userId: strin
             <h2 style={{ margin: "0 0 6px 0" }}>{user.name}</h2>
             <p className="muted" style={{ margin: 0 }}>
               {user.email}
+              {user.team_name && ` · ${user.team_name}`}
             </p>
           </div>
           <LevelBadge level={user.current_level} name={user.current_level_name} />
@@ -65,6 +71,11 @@ export function UserDetailView({ userId, showAdminHint = true }: { userId: strin
         )}
       </div>
 
+      <div className="card">
+        <p className="section-title">Progress — is this improving?</p>
+        <ProgressCard userId={userId} />
+      </div>
+
       <div className="card" style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
         <div>
           <p className="section-title">GCCF averages</p>
@@ -75,11 +86,8 @@ export function UserDetailView({ userId, showAdminHint = true }: { userId: strin
           )}
         </div>
         <div style={{ flex: 1, minWidth: 280 }}>
-          <p className="section-title">Composite trend</p>
-          <ScoreTrend prompts={prompts} />
-          <p className="muted" style={{ marginTop: 8 }}>
-            Dashed line marks the default in-session block floor (35/100).
-          </p>
+          <p className="section-title">Per-dimension trend (30 days)</p>
+          <TrendChart height={220} days={30} />
         </div>
       </div>
 
@@ -97,8 +105,39 @@ export function UserDetailView({ userId, showAdminHint = true }: { userId: strin
         </div>
       )}
 
+      {sessions.length > 0 && (
+        <div className="card">
+          <p className="section-title">Sessions</p>
+          <table>
+            <thead>
+              <tr>
+                <th>Started</th>
+                <th>Level</th>
+                <th>Prompts</th>
+                <th>Avg GCCF</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sessions.map((s) => (
+                <tr key={s.id}>
+                  <td>
+                    <Link to={`/dashboard/sessions/${s.id}`}>{new Date(s.started_at).toLocaleDateString()}</Link>
+                  </td>
+                  <td className="muted">{s.session_level_name ?? "—"}</td>
+                  <td className="muted">{s.prompt_count}</td>
+                  <td className="muted">{s.avg_composite != null ? s.avg_composite.toFixed(0) : "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
       <div className="card">
         <p className="section-title">Prompt history</p>
+        <p className="muted" style={{ marginTop: -6, marginBottom: 12 }}>
+          Click a row to see the full GCCF breakdown for that prompt.
+        </p>
         <PromptHistoryTable prompts={prompts} />
       </div>
 

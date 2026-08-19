@@ -1,10 +1,13 @@
 from __future__ import annotations
 
-from fastapi import APIRouter
+import dataclasses
+
+from fastapi import APIRouter, HTTPException
 from psycopg.rows import dict_row
 
 import db
 import schemas
+from services.progress import compute_progress
 
 router = APIRouter()
 
@@ -45,3 +48,31 @@ async def list_teams() -> list[schemas.TeamOut]:
         )
         for r in rows
     ]
+
+
+@router.get("/teams/{team_id}/progress", response_model=schemas.ProgressResponse)
+async def get_team_progress(team_id: str) -> schemas.ProgressResponse:
+    """Is this team actually getting better, dimension by dimension --
+    the team-scoped twin of GET /users/{id}/progress. Recent window is the
+    team's most recent 15 scored prompts pooled across all members, which
+    skews toward whoever's most active -- a reasonable v1 approximation,
+    not a per-member-weighted average."""
+    async with db.pool.connection() as conn, conn.cursor(row_factory=dict_row) as cur:
+        await cur.execute("SELECT name FROM teams WHERE id = %s", (team_id,))
+        row = await cur.fetchone()
+        if row is None:
+            raise HTTPException(status_code=404, detail="team not found")
+        name = row["name"]
+
+        result = await compute_progress(
+            conn, "WHERE u.team_id = %s", (team_id,), scope=f"team:{team_id}", scope_label=name
+        )
+
+    return schemas.ProgressResponse(
+        scope=result["scope"],
+        scope_label=result["scope_label"],
+        dimensions=[schemas.DimensionProgress(**dataclasses.asdict(d)) for d in result["dimensions"]],
+        strongest_dimension=result["strongest_dimension"],
+        weakest_dimension=result["weakest_dimension"],
+        headline=result["headline"],
+    )

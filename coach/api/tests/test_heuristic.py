@@ -67,3 +67,38 @@ def test_empty_prompt_does_not_raise():
 def test_score_is_deterministic():
     prompt = "Add input validation to the signup form, respond with a diff"
     assert score_prompt(prompt) == score_prompt(prompt)
+
+
+def test_weak_dimension_carries_actionable_tip():
+    score = score_prompt("help")  # no verb, no artifact, one word -> unambiguously weak
+    goal_fb = score.dimensions["goal"]
+    assert goal_fb.status == "weak"
+    assert goal_fb.top_tip  # non-empty -- a weak dimension always has a next step
+    assert any(issue.code in ("no_verb", "no_artifact", "too_short") for issue in goal_fb.issues)
+
+
+def test_strong_dimension_carries_no_tip():
+    prompt = (
+        "Fix the null pointer exception in `src/services/user_service.py` when "
+        'get_user_by_id() is called with a missing id. The error is: "AttributeError: '
+        "'NoneType' object has no attribute 'email'\". Don't change the public "
+        "signature of get_user_by_id -- only fix the internal handling. Respond with "
+        "a unified diff and a one-line summary."
+    )
+    score = score_prompt(prompt)
+    for dimension in ("goal", "context", "format"):
+        fb = score.dimensions[dimension]
+        assert fb.status == "strong"
+        assert fb.top_tip is None
+        assert fb.issues == []
+
+
+def test_dimensions_json_is_serializable():
+    import json
+
+    score = score_prompt("fix it")
+    payload = json.dumps(score.dimensions_json())  # must not raise
+    parsed = json.loads(payload)
+    assert set(parsed.keys()) == {"goal", "context", "constraints", "format"}
+    assert "tip" in parsed["goal"]
+    assert "issues" in parsed["goal"]

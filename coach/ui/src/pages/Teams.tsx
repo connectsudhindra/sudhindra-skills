@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api/client";
+import { ProgressCard } from "../components/ProgressCard";
 import { TeamComparisonChart } from "../components/TeamComparisonChart";
 import { TrendChart } from "../components/TrendChart";
 import type { Team } from "../types";
@@ -70,13 +71,19 @@ export function Teams() {
       </div>
 
       {selected && (
-        <div className="card">
-          <p className="section-title">{selected.name} — 30-day GCCF trend</p>
-          <TrendChart teamId={selected.id} days={30} />
-          <p className="muted" style={{ marginTop: 8 }}>
-            <Link to={`/dashboard?team=${selected.id}`}>View {selected.name}'s roster →</Link>
-          </p>
-        </div>
+        <>
+          <div className="card">
+            <p className="section-title">{selected.name} — 30-day GCCF trend</p>
+            <TrendChart teamId={selected.id} days={30} />
+            <p className="muted" style={{ marginTop: 8 }}>
+              <Link to={`/dashboard?team=${selected.id}`}>View {selected.name}'s roster →</Link>
+            </p>
+          </div>
+          <div className="card">
+            <p className="section-title">{selected.name} — is this team improving?</p>
+            <ProgressCard teamId={selected.id} />
+          </div>
+        </>
       )}
     </div>
   );

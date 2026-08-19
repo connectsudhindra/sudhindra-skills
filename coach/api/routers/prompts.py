@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 
 from fastapi import APIRouter, BackgroundTasks, Depends
+from psycopg.types.json import Json
 
 import config
 import db
@@ -88,10 +89,13 @@ async def submit_prompt(
                     """
                     INSERT INTO prompt_scores
                         (prompt_id, scoring_method, goal_score, context_score,
-                         constraints_score, format_score, rationale)
-                    VALUES (%s, 'heuristic', %s, %s, %s, %s, %s)
+                         constraints_score, format_score, rationale, dimension_feedback)
+                    VALUES (%s, 'heuristic', %s, %s, %s, %s, %s, %s)
                     """,
-                    (prompt_id, score.goal, score.context, score.constraints, score.format, score.rationale),
+                    (
+                        prompt_id, score.goal, score.context, score.constraints, score.format,
+                        score.rationale, Json(score.dimensions_json()),
+                    ),
                 )
 
         if body.is_scorable:
@@ -119,7 +123,7 @@ async def submit_prompt(
         prompt_id=prompt_id,
         heuristic_score=schemas.GCCFScore(
             goal=score.goal, context=score.context, constraints=score.constraints,
-            format=score.format, rationale=score.rationale,
+            format=score.format, rationale=score.rationale, dimensions=score.dimensions_json(),
         ),
         current_level=level_result.level_num,
         current_level_name=level_result.level_name,

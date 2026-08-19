@@ -84,6 +84,10 @@ async def trend(
             SELECT
               date_trunc('day', p.submitted_at)::date::text AS day,
               AVG(ps.composite_score) AS avg_composite,
+              AVG(ps.goal_score) AS avg_goal,
+              AVG(ps.context_score) AS avg_context,
+              AVG(ps.constraints_score) AS avg_constraints,
+              AVG(ps.format_score) AS avg_format,
               count(*) AS prompt_count
             FROM prompt_scores ps
             JOIN prompts p ON p.id = ps.prompt_id
@@ -100,7 +104,13 @@ async def trend(
         scope=f"team:{team_id}" if team_id else "org",
         points=[
             schemas.TrendPoint(
-                day=r["day"], avg_composite=round(float(r["avg_composite"]), 2), prompt_count=r["prompt_count"]
+                day=r["day"],
+                avg_composite=round(float(r["avg_composite"]), 2),
+                avg_goal=round(float(r["avg_goal"]), 2),
+                avg_context=round(float(r["avg_context"]), 2),
+                avg_constraints=round(float(r["avg_constraints"]), 2),
+                avg_format=round(float(r["avg_format"]), 2),
+                prompt_count=r["prompt_count"],
             )
             for r in rows
         ],

@@ -1,8 +1,11 @@
 import type {
   CoachingFeedback,
   LevelDistributionEntry,
+  Progress,
   Prompt,
   ScoringComparison,
+  SessionDetail,
+  SessionSummary,
   Team,
   Trend,
   UserDetail,
@@ -39,11 +42,20 @@ export const api = {
 
   getUserFeedback: (userId: string) => getJson<CoachingFeedback[]>(`/users/${userId}/feedback`),
 
+  getUserProgress: (userId: string) => getJson<Progress>(`/users/${userId}/progress`),
+
+  getUserSessions: (userId: string, limit = 30) =>
+    getJson<SessionSummary[]>(`/users/${userId}/sessions?limit=${limit}`),
+
+  getSessionDetail: (sessionId: string) => getJson<SessionDetail>(`/sessions/${sessionId}`),
+
   levelDistribution: () => getJson<LevelDistributionEntry[]>("/dashboard/level-distribution"),
 
   scoringComparison: () => getJson<ScoringComparison>("/dashboard/scoring-comparison"),
 
   listTeams: () => getJson<Team[]>("/teams"),
+
+  getTeamProgress: (teamId: string) => getJson<Progress>(`/teams/${teamId}/progress`),
 
   trend: (teamId?: string, days = 30) => getJson<Trend>(`/dashboard/trend${buildQuery({ team_id: teamId, days })}`),
 };

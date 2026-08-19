@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import dataclasses
+
 from fastapi import APIRouter, HTTPException, Query
 from psycopg.rows import dict_row
 
 import db
 import schemas
+from services.progress import compute_progress
 
 router = APIRouter()
 
@@ -137,7 +140,8 @@ async def get_user_prompts(
         await cur.execute(
             """
             SELECT prompt_id, scoring_method, goal_score, context_score,
-                   constraints_score, format_score, composite_score, rationale, latency_ms
+                   constraints_score, format_score, composite_score, rationale,
+                   dimension_feedback, latency_ms
             FROM prompt_scores WHERE prompt_id = ANY(%s)
             """,
             (prompt_ids,),
@@ -175,3 +179,62 @@ async def get_user_feedback(user_id: str, limit: int = Query(default=20, le=100)
         )
         rows = await cur.fetchall()
     return rows
+
+
+@router.get("/users/{user_id}/progress", response_model=schemas.ProgressResponse)
+async def get_user_progress(user_id: str) -> schemas.ProgressResponse:
+    """Is this specific person actually getting better, dimension by
+    dimension -- not just their current score. Compares their most recent
+    15 scored prompts against the 15 before that."""
+    async with db.pool.connection() as conn, conn.cursor(row_factory=dict_row) as cur:
+        await cur.execute("SELECT name FROM users WHERE id = %s", (user_id,))
+        row = await cur.fetchone()
+        _resolve_user_id_or_404(row)
+        name = row["name"]
+
+        result = await compute_progress(conn, "WHERE p.user_id = %s", (user_id,), scope=f"user:{user_id}", scope_label=name)
+
+    return schemas.ProgressResponse(
+        scope=result["scope"],
+        scope_label=result["scope_label"],
+        dimensions=[schemas.DimensionProgress(**dataclasses.asdict(d)) for d in result["dimensions"]],
+        strongest_dimension=result["strongest_dimension"],
+        weakest_dimension=result["weakest_dimension"],
+        headline=result["headline"],
+    )
+
+
+@router.get("/users/{user_id}/sessions", response_model=list[schemas.SessionSummary])
+async def get_user_sessions(
+    user_id: str, limit: int = Query(default=30, le=100)
+) -> list[schemas.SessionSummary]:
+    """Session-level view: when this user worked, how long, what level that
+    session landed at, and its average score -- the unit between a single
+    prompt and the whole-history rollup."""
+    async with db.pool.connection() as conn, conn.cursor(row_factory=dict_row) as cur:
+        await cur.execute(
+            """
+            SELECT
+              s.id, s.claude_session_id, s.started_at, s.ended_at,
+              s.session_level, l.name AS session_level_name,
+              count(p.id) FILTER (WHERE p.is_scorable) AS prompt_count,
+              AVG(ps.composite_score) AS avg_composite
+            FROM sessions s
+            LEFT JOIN levels l ON l.level_num = s.session_level
+            LEFT JOIN prompts p ON p.session_id = s.id
+            LEFT JOIN prompt_scores ps ON ps.prompt_id = p.id AND ps.scoring_method = 'heuristic'
+            WHERE s.user_id = %s
+            GROUP BY s.id, s.claude_session_id, s.started_at, s.ended_at, s.session_level, l.name
+            ORDER BY s.started_at DESC
+            LIMIT %s
+            """,
+            (user_id, limit),
+        )
+        rows = await cur.fetchall()
+
+    return [
+        schemas.SessionSummary(
+            **{**r, "avg_composite": round(float(r["avg_composite"]), 2) if r["avg_composite"] is not None else None}
+        )
+        for r in rows
+    ]

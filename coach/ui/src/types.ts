@@ -34,6 +34,10 @@ export interface Team {
 export interface TrendPoint {
   day: string;
   avg_composite: number;
+  avg_goal: number;
+  avg_context: number;
+  avg_constraints: number;
+  avg_format: number;
   prompt_count: number;
 }
 
@@ -53,6 +57,25 @@ export interface UserDetail {
   gccf_averages: GCCFScore | null;
 }
 
+export type DimensionStatus = "strong" | "developing" | "weak";
+export type DimensionKey = "goal" | "context" | "constraints" | "format";
+
+export interface IssueDetail {
+  code: string;
+  weight: number;
+  message: string;
+  tip: string;
+}
+
+export interface DimensionFeedback {
+  score: number;
+  status: DimensionStatus;
+  issues: string[];
+  message: string;
+  tip: string | null;
+  issue_detail: IssueDetail[];
+}
+
 export interface PromptScore {
   scoring_method: ScoringMethod;
   goal_score: number;
@@ -61,6 +84,7 @@ export interface PromptScore {
   format_score: number;
   composite_score: number;
   rationale: string | null;
+  dimension_feedback: Record<DimensionKey, DimensionFeedback> | null;
   latency_ms: number | null;
 }
 
@@ -94,3 +118,42 @@ export interface ScoringComparison {
 }
 
 export const LEVEL_NAMES = ["", "Operator", "Composer", "Delegator", "Orchestrator", "Architect"];
+
+export type Direction = "improving" | "flat" | "declining";
+
+export interface DimensionProgress {
+  dimension: DimensionKey;
+  recent_avg: number | null;
+  prior_avg: number | null;
+  delta: number | null;
+  direction: Direction;
+  sample_size: number;
+  most_common_issue: string | null;
+  most_common_issue_message: string | null;
+  tip: string | null;
+}
+
+export interface Progress {
+  scope: string;
+  scope_label: string;
+  dimensions: DimensionProgress[];
+  strongest_dimension: DimensionKey | null;
+  weakest_dimension: DimensionKey | null;
+  headline: string;
+}
+
+export interface SessionSummary {
+  id: string;
+  claude_session_id: string;
+  started_at: string;
+  ended_at: string | null;
+  session_level: number | null;
+  session_level_name: string | null;
+  prompt_count: number;
+  avg_composite: number | null;
+}
+
+export interface SessionDetail {
+  session: SessionSummary;
+  prompts: Prompt[];
+}

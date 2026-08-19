@@ -1,5 +1,6 @@
 import { Navigate, NavLink, Route, HashRouter as Router, Routes } from "react-router-dom";
 import { MyCoaching } from "./pages/MyCoaching";
+import { SessionDetailPage } from "./pages/SessionDetail";
 import { TeamRoster } from "./pages/TeamRoster";
 import { Teams } from "./pages/Teams";
 import { UserDetailPage } from "./pages/UserDetail";
@@ -26,6 +27,7 @@ export default function App() {
           <Route path="/dashboard" element={<TeamRoster />} />
           <Route path="/dashboard/teams" element={<Teams />} />
           <Route path="/dashboard/users/:userId" element={<UserDetailPage />} />
+          <Route path="/dashboard/sessions/:sessionId" element={<SessionDetailPage />} />
           <Route path="/me" element={<MyCoaching />} />
         </Routes>
       </div>

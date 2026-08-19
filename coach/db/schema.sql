@@ -69,6 +69,7 @@ CREATE TABLE prompt_scores (
   composite_score   NUMERIC(5,2) GENERATED ALWAYS AS
                        ((goal_score + context_score + constraints_score + format_score) / 4) STORED,
   rationale         TEXT,
+  dimension_feedback JSONB,
   latency_ms        INTEGER,
   scored_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (prompt_id, scoring_method)

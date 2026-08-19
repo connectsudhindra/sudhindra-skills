@@ -20,6 +20,10 @@ class GCCFScore(BaseModel):
     constraints: float = Field(ge=0, le=100)
     format: float = Field(ge=0, le=100)
     rationale: str | None = None
+    dimensions: dict | None = None
+    """Per-dimension {status, issues, message, tip} -- see scoring/heuristic.py's
+    DimensionFeedback.to_dict(). None for scores that predate this field or
+    come from a method that doesn't produce structured feedback."""
 
     @property
     def composite(self) -> float:
@@ -80,6 +84,7 @@ class PromptScoreOut(BaseModel):
     format_score: float
     composite_score: float
     rationale: str | None
+    dimension_feedback: dict | None
     latency_ms: int | None
 
 
@@ -122,9 +127,53 @@ class TeamOut(BaseModel):
 class TrendPoint(BaseModel):
     day: str
     avg_composite: float
+    avg_goal: float
+    avg_context: float
+    avg_constraints: float
+    avg_format: float
     prompt_count: int
 
 
 class TrendResponse(BaseModel):
     scope: str
     points: list[TrendPoint]
+
+
+Direction = Literal["improving", "flat", "declining"]
+
+
+class DimensionProgress(BaseModel):
+    dimension: str
+    recent_avg: float | None
+    prior_avg: float | None
+    delta: float | None
+    direction: Direction
+    sample_size: int
+    most_common_issue: str | None
+    most_common_issue_message: str | None
+    tip: str | None
+
+
+class ProgressResponse(BaseModel):
+    scope: str
+    scope_label: str
+    dimensions: list[DimensionProgress]
+    strongest_dimension: str | None
+    weakest_dimension: str | None
+    headline: str
+
+
+class SessionSummary(BaseModel):
+    id: UUID
+    claude_session_id: str
+    started_at: datetime
+    ended_at: datetime | None
+    session_level: int | None
+    session_level_name: str | None
+    prompt_count: int
+    avg_composite: float | None
+
+
+class SessionDetail(BaseModel):
+    session: SessionSummary
+    prompts: list[PromptOut]

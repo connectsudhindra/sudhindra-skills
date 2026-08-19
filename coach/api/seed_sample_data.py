@@ -14,6 +14,14 @@ never silently appear in a real install, only when explicitly asked for.
 Every row this script creates is tagged (`users.email` ends in
 `@sample.coach.local`), so --wipe can remove exactly this data and nothing
 a real user created.
+
+Prompt text is assembled from real components (a verb, an artifact, error
+detail, framing, scope, a requirement, a format ask), each included with a
+probability driven by a per-day "quality" target, then scored through the
+*real* heuristic scorer (scoring/heuristic.py) -- not hand-picked numbers.
+That's what makes the dimension_feedback, issue codes, and progress
+insights on seeded users mean something: they're the same pipeline real
+usage goes through, just with generated instead of typed text.
 """
 from __future__ import annotations
 
@@ -23,35 +31,87 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 
 import psycopg
+from psycopg.types.json import Json
 
 import config
+from scoring.heuristic import score_prompt
 
 SAMPLE_EMAIL_SUFFIX = "@sample.coach.local"
 ROLLING_WINDOW = config.ROLLING_WINDOW_SIZE
 MIN_PROMPTS_TO_LEVEL = config.MIN_SCORABLE_PROMPTS_TO_LEVEL
 
-PROMPT_TEMPLATES_WEAK = [
-    "fix the bug",
-    "make it work",
-    "help with the api",
-    "the tests are failing",
-    "improve performance",
-    "update the component",
+_VERBS = ["Fix", "Add", "Refactor", "Investigate", "Update", "Remove", "Optimize"]
+_WEAK_VERBS = ["look at", "handle", "deal with"]
+_ARTIFACTS = [
+    "the login handler in `src/auth/login.py`",
+    "the checkout flow in `src/checkout/cart.py`",
+    "the retry logic in `src/uploads/client.py`",
+    "the invoice calculation in `src/billing/invoice.py`",
+    "the query builder in `src/db/query.py`",
+    "the websocket handler in `src/realtime/socket.py`",
 ]
-PROMPT_TEMPLATES_STRONG = [
-    "Fix the race condition in src/workers/queue.py when two consumers claim the same job. "
-    "Error: \"IntegrityError: duplicate key value\". Don't change the public claim_job() signature. "
+_ERROR_DETAILS = [
+    'It throws "KeyError: total" when the cart is empty.',
+    'Error: "AttributeError: NoneType has no attribute email".',
+    'It throws "IntegrityError: duplicate key value".',
+    'Logs show "TimeoutError after 30s".',
+]
+_FRAMINGS = [
+    "when the cart is empty",
+    "after the recent schema migration",
+    "given a missing id",
+    "when two requests race",
+]
+_SCOPES = [
+    "Don't change the public API.",
+    "Keep the existing validation unchanged.",
+    "Don't touch the error logging.",
+]
+_REQUIREMENTS = [
+    "Must not exceed 3 retries.",
+    "Should preserve backward compatibility.",
+    "Must complete within 200ms.",
+]
+_FORMAT_ASKS = [
     "Return as a diff.",
-    "Refactor src/billing/invoice.py to extract the tax calculation into its own function. "
-    "Must not change the rounding behavior. Respond with a short summary of what moved.",
-    "Add retry logic to the upload handler in src/uploads/client.py, at most 3 attempts, "
-    "exponential backoff. Don't touch the existing error logging. Return as a diff.",
-    "Investigate why src/api/routes/orders.py throws \"KeyError: total\" when the cart is empty. "
-    "Keep the existing validation middleware unchanged. Explain the root cause in a short paragraph, "
-    "then propose a fix as a diff.",
-    "Write a test for get_user_by_id in src/services/user_service.py covering the missing-id case. "
-    "Only test the public interface, no mocking internals. Format as a single pytest function.",
+    "Respond with a short summary.",
+    "Format as a checklist.",
 ]
+_WEAK_FALLBACKS = ["fix it", "help", "make it work", "the tests are failing", "improve performance", "update the thing"]
+
+
+def build_prompt_text(quality: float, rng: random.Random) -> str:
+    """quality in [0, 1] -- probabilistically includes more GCCF-bearing
+    clauses as it rises. Not a target score; the real scorer decides that."""
+    quality = max(0.0, min(1.0, quality))
+    if quality < 0.12 and rng.random() < 0.6:
+        return rng.choice(_WEAK_FALLBACKS)
+
+    has_verb = rng.random() < min(1.0, quality + 0.35)
+    has_artifact = rng.random() < min(1.0, quality + 0.25)
+    has_detail = rng.random() < quality
+    has_framing = rng.random() < max(0.0, quality - 0.1)
+    has_scope = rng.random() < max(0.0, quality - 0.15)
+    has_requirement = rng.random() < max(0.0, quality - 0.2)
+    has_format = rng.random() < max(0.0, quality - 0.05)
+
+    verb = rng.choice(_VERBS) if has_verb else rng.choice(_WEAK_VERBS)
+    artifact = rng.choice(_ARTIFACTS) if has_artifact else "it"
+
+    sentence = f"{verb} {artifact}"
+    if has_framing:
+        sentence += f" {rng.choice(_FRAMINGS)}"
+    sentence += "."
+    if has_detail:
+        sentence += " " + rng.choice(_ERROR_DETAILS)
+    if has_scope:
+        sentence += " " + rng.choice(_SCOPES)
+    if has_requirement:
+        sentence += " " + rng.choice(_REQUIREMENTS)
+    if has_format:
+        sentence += " " + rng.choice(_FORMAT_ASKS)
+
+    return sentence
 
 
 @dataclass
@@ -99,40 +159,22 @@ TEAMS = [
 ]
 
 
-def target_composite_for_day(trajectory: str, day_fraction: float, rng: random.Random) -> float:
-    """day_fraction is 0.0 (first day) to 1.0 (most recent day)."""
-    noise = rng.uniform(-8, 8)
+def target_quality_for_day(trajectory: str, day_fraction: float, rng: random.Random) -> float:
+    """day_fraction is 0.0 (first day) to 1.0 (most recent day). Returned
+    value drives build_prompt_text's clause-inclusion probabilities."""
+    noise = rng.uniform(-0.08, 0.08)
     if trajectory == "flat_weak":
-        base = 25
+        base = 0.22
     elif trajectory == "strong_steady":
-        base = 90
+        base = 0.85
     elif trajectory == "improving":
-        base = 20 + day_fraction * 65  # 20 -> 85
+        base = 0.15 + day_fraction * 0.65  # weak -> strong
     elif trajectory == "dip_recover":
-        # dips hard around the midpoint, recovers by the end
-        dip = -35 * max(0.0, 1 - abs(day_fraction - 0.5) * 4)
-        base = 70 + dip
+        dip = -0.35 * max(0.0, 1 - abs(day_fraction - 0.5) * 4)
+        base = 0.65 + dip
     else:
-        base = 50
-    return max(2.0, min(98.0, base + noise))
-
-
-def scores_for_composite(composite: float, rng: random.Random) -> tuple[float, float, float, float]:
-    """Four dimension scores that average to roughly `composite`, with a bit
-    of spread so the radar chart shows real dimensional variance rather than
-    a perfect square."""
-    spread = 12
-    raw = [composite + rng.uniform(-spread, spread) for _ in range(4)]
-    raw = [max(0.0, min(100.0, v)) for v in raw]
-    # nudge the mean back toward the target composite
-    delta = composite - sum(raw) / 4
-    raw = [max(0.0, min(100.0, v + delta)) for v in raw]
-    return tuple(round(v, 2) for v in raw)  # type: ignore[return-value]
-
-
-def prompt_text_for(composite: float, rng: random.Random) -> str:
-    pool = PROMPT_TEMPLATES_STRONG if composite >= 55 else PROMPT_TEMPLATES_WEAK
-    return rng.choice(pool)
+        base = 0.45
+    return max(0.0, min(0.98, base + noise))
 
 
 def level_for_score(cur: psycopg.Cursor, composite: float) -> tuple[int, str]:
@@ -176,15 +218,17 @@ def seed_user(cur: psycopg.Cursor, team_id: str, profile: UserProfile, rng: rand
 
     current_level = 1
     rolling_scores: list[float] = []
+    last_score = None
 
     for i in range(profile.prompt_count):
         day_fraction = i / max(1, profile.prompt_count - 1)
         session_id, session_start = session_ids[min(i * session_count // profile.prompt_count, session_count - 1)]
         submitted_at = session_start + timedelta(minutes=rng.uniform(0, 60))
 
-        composite = target_composite_for_day(profile.trajectory, day_fraction, rng)
-        goal, context, constraints, fmt = scores_for_composite(composite, rng)
-        text = prompt_text_for(composite, rng)
+        quality = target_quality_for_day(profile.trajectory, day_fraction, rng)
+        text = build_prompt_text(quality, rng)
+        score = score_prompt(text)  # the real scorer -- authentic scores + dimension_feedback
+        last_score = score
 
         cur.execute(
             "INSERT INTO prompts (session_id, user_id, prompt_text, is_scorable, submitted_at) "
@@ -194,9 +238,13 @@ def seed_user(cur: psycopg.Cursor, team_id: str, profile: UserProfile, rng: rand
         (prompt_id,) = cur.fetchone()
         cur.execute(
             "INSERT INTO prompt_scores "
-            "(prompt_id, scoring_method, goal_score, context_score, constraints_score, format_score, scored_at) "
-            "VALUES (%s, 'heuristic', %s, %s, %s, %s, %s)",
-            (prompt_id, goal, context, constraints, fmt, submitted_at),
+            "(prompt_id, scoring_method, goal_score, context_score, constraints_score, format_score, "
+            "rationale, dimension_feedback, scored_at) "
+            "VALUES (%s, 'heuristic', %s, %s, %s, %s, %s, %s, %s)",
+            (
+                prompt_id, score.goal, score.context, score.constraints, score.format,
+                score.rationale, Json(score.dimensions_json()), submitted_at,
+            ),
         )
 
         # Roughly 40% of prompts also get a synthetic LLM score, so the
@@ -206,11 +254,11 @@ def seed_user(cur: psycopg.Cursor, team_id: str, profile: UserProfile, rng: rand
         # occasional larger divergence -- a flat 1:1 match would misrepresent
         # what real agreement looks like.
         if rng.random() < 0.4:
-            llm_jitter = 15 if rng.random() < 0.15 else 6  # occasional bigger disagreement
-            llm_goal = max(0.0, min(100.0, goal + rng.uniform(-llm_jitter, llm_jitter)))
-            llm_context = max(0.0, min(100.0, context + rng.uniform(-llm_jitter, llm_jitter)))
-            llm_constraints = max(0.0, min(100.0, constraints + rng.uniform(-llm_jitter, llm_jitter)))
-            llm_format = max(0.0, min(100.0, fmt + rng.uniform(-llm_jitter, llm_jitter)))
+            llm_jitter = 15 if rng.random() < 0.15 else 6
+            llm_goal = max(0.0, min(100.0, score.goal + rng.uniform(-llm_jitter, llm_jitter)))
+            llm_context = max(0.0, min(100.0, score.context + rng.uniform(-llm_jitter, llm_jitter)))
+            llm_constraints = max(0.0, min(100.0, score.constraints + rng.uniform(-llm_jitter, llm_jitter)))
+            llm_format = max(0.0, min(100.0, score.format + rng.uniform(-llm_jitter, llm_jitter)))
             cur.execute(
                 "INSERT INTO prompt_scores "
                 "(prompt_id, scoring_method, model_name, goal_score, context_score, constraints_score, "
@@ -229,7 +277,7 @@ def seed_user(cur: psycopg.Cursor, team_id: str, profile: UserProfile, rng: rand
                 ),
             )
 
-        rolling_scores.append(round((goal + context + constraints + fmt) / 4, 2))
+        rolling_scores.append(score.composite)
         if len(rolling_scores) > ROLLING_WINDOW:
             rolling_scores.pop(0)
 
@@ -247,33 +295,35 @@ def seed_user(cur: psycopg.Cursor, team_id: str, profile: UserProfile, rng: rand
 
     cur.execute("UPDATE users SET current_level = %s WHERE id = %s", (current_level, user_id))
 
-    # Close the most recent session with a session_level, and (for two
-    # profiles) leave one end-of-session coaching_feedback row so the UI's
-    # feedback panel has something real to show.
-    last_session_id, _ = session_ids[-1]
-    cur.execute(
-        "SELECT AVG(ps.composite_score) FROM prompt_scores ps JOIN prompts p ON p.id = ps.prompt_id "
-        "WHERE p.session_id = %s",
-        (last_session_id,),
-    )
-    (last_avg,) = cur.fetchone()
-    if last_avg is not None:
-        session_level, _ = level_for_score(cur, float(last_avg))
-        cur.execute("UPDATE sessions SET session_level = %s WHERE id = %s", (session_level, last_session_id))
-
-    if profile.trajectory in ("improving", "dip_recover"):
-        weakest = min(
-            [("Goal", goal), ("Context", context), ("Constraints", constraints), ("Format", fmt)],
-            key=lambda pair: pair[1],
+    # Close every session with its own session_level (not just the last
+    # one) -- the Sessions view shows this per session, so a blank level on
+    # every historical row but the newest would look broken.
+    last_avg = None
+    for sid, _ in session_ids:
+        cur.execute(
+            "SELECT AVG(ps.composite_score) FROM prompt_scores ps JOIN prompts p ON p.id = ps.prompt_id "
+            "WHERE p.session_id = %s AND ps.scoring_method = 'heuristic'",
+            (sid,),
         )
+        (avg,) = cur.fetchone()
+        if avg is not None:
+            session_level, _ = level_for_score(cur, float(avg))
+            cur.execute("UPDATE sessions SET session_level = %s WHERE id = %s", (session_level, sid))
+            last_avg = avg
+    last_session_id, _ = session_ids[-1]
+
+    if profile.trajectory in ("improving", "dip_recover") and last_score is not None:
+        weakest_dim = min(last_score.dimensions.values(), key=lambda fb: fb.score)
+        weakest_label = next(k for k, v in last_score.dimensions.items() if v is weakest_dim).capitalize()
+        detail = f" -- most often because it {weakest_dim.message}" if weakest_dim.issues else ""
         cur.execute(
             "INSERT INTO coaching_feedback (session_id, user_id, feedback_type, feedback_text, created_at) "
             "VALUES (%s, %s, 'end_of_session', %s, %s)",
             (
                 last_session_id,
                 user_id,
-                f"Last session: average GCCF {last_avg:.0f}/100. Weakest dimension: {weakest[0]} "
-                f"({weakest[1]:.0f}/100).",
+                f"Last session: average GCCF {last_avg:.0f}/100. Weakest dimension: {weakest_label} "
+                f"({weakest_dim.score:.0f}/100){detail}.",
                 submitted_at,
             ),
         )

@@ -62,7 +62,23 @@ A user's rolling average over their last 20 scored prompts (`config.ROLLING_WIND
 
 ## Teams
 
-Users optionally belong to a `team` (`users.team_id`, nullable — solo use needs no team at all). `GET /teams` gives cross-team comparison (member count, average level, average rolling composite); `GET /users?team_id=` and the Team Roster's team filter chips scope down to one. `GET /dashboard/trend?team_id=&days=` returns a daily average-composite time series, org-wide or team-scoped — this is what the dashboard's trend charts are for: a flat snapshot can't show whether coaching is actually moving scores over time, a trend line can.
+Users optionally belong to a `team` (`users.team_id`, nullable — solo use needs no team at all). `GET /teams` gives cross-team comparison (member count, average level, average rolling composite); `GET /users?team_id=` and the Team Roster's team filter chips scope down to one. `GET /dashboard/trend?team_id=&days=` returns daily average scores **per GCCF dimension**, org-wide or team-scoped — the Team Roster and Teams pages plot all four as separate lines, because a single composite average hides which dimension is actually moving.
+
+## Every score carries structured, actionable feedback — not just a number
+
+`scoring/heuristic.py` doesn't just compute a 0–100 per dimension; every failing check produces a named issue code, a plain-English explanation of what's missing, and one concrete tip, prioritized by which fix would move the score most (`DimensionFeedback.top_tip`). This is stored as `prompt_scores.dimension_feedback` (JSONB) alongside the numeric columns, and it's what drives the actual coaching text everywhere it appears:
+
+- **In-session block messages** (`services/coaching.py`'s `block_reason`) show the specific issue and tip per weak dimension, not just a checkmark.
+- **End-of-session summaries** name the most common issue behind the session's weakest dimension.
+- **The dashboard** (`PromptHistoryTable`'s expandable rows, `DimensionBreakdown`) shows the same breakdown for any individual prompt.
+
+## Progress tracking — is this person/team actually improving
+
+`GET /users/{id}/progress` and `GET /teams/{id}/progress` (`services/progress.py`, one implementation shared by both) compare a recent window of scored prompts (15) against the window before it, **per dimension** — recent average, prior average, delta, and a direction (`improving` / `flat` / `declining`, with a ±3-point band to avoid reading noise as movement). For any dimension still weak in the recent window, it also surfaces the single most common issue code and its tip, pulled from `dimension_feedback.issue_detail` (not the dimension's combined message, which can conflate two different problems). The response includes a one-line `headline` built from all of this — strongest dimension, best-moving dimension, and the weakest with its most common cause. Backs the Progress card on both `UserDetail` and `Teams`.
+
+## Sessions
+
+`GET /users/{id}/sessions` lists a user's sessions (start/end, `session_level`, prompt count, average composite) — the unit between one prompt and a user's whole history. `GET /sessions/{id}` drills into one, with every prompt's full score breakdown, reusing the same `PromptHistoryTable`/`DimensionBreakdown` components as the user-level prompt history.
 
 ## What's deliberately out of scope for this version
 
