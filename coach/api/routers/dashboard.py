@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 from psycopg.rows import dict_row
 
 import db
+import schemas
 
 router = APIRouter()
 
@@ -61,3 +62,46 @@ async def scoring_comparison() -> dict:
             for r in rows
         ],
     }
+
+
+@router.get("/dashboard/trend", response_model=schemas.TrendResponse)
+async def trend(
+    team_id: str | None = Query(default=None), days: int = Query(default=30, le=180)
+) -> schemas.TrendResponse:
+    """Daily average GCCF composite over the trailing `days` -- backs the
+    trend chart on Team Roster (org-wide, no team_id) and the Teams
+    overview (one team at a time). This is the thing a flat snapshot can't
+    show: whether coaching is actually moving the needle over time."""
+    conditions = ["ps.scoring_method = 'heuristic'", "p.is_scorable = true", "p.submitted_at >= now() - (%s || ' days')::interval"]
+    params: list = [days]
+    if team_id is not None:
+        conditions.append("u.team_id = %s")
+        params.append(team_id)
+
+    async with db.pool.connection() as conn, conn.cursor(row_factory=dict_row) as cur:
+        await cur.execute(
+            f"""
+            SELECT
+              date_trunc('day', p.submitted_at)::date::text AS day,
+              AVG(ps.composite_score) AS avg_composite,
+              count(*) AS prompt_count
+            FROM prompt_scores ps
+            JOIN prompts p ON p.id = ps.prompt_id
+            JOIN users u ON u.id = p.user_id
+            WHERE {" AND ".join(conditions)}
+            GROUP BY day
+            ORDER BY day ASC
+            """,
+            tuple(params),
+        )
+        rows = await cur.fetchall()
+
+    return schemas.TrendResponse(
+        scope=f"team:{team_id}" if team_id else "org",
+        points=[
+            schemas.TrendPoint(
+                day=r["day"], avg_composite=round(float(r["avg_composite"]), 2), prompt_count=r["prompt_count"]
+            )
+            for r in rows
+        ],
+    )

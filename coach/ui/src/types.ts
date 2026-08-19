@@ -13,12 +13,33 @@ export interface UserSummary {
   id: string;
   name: string;
   email: string;
+  team_id: string | null;
+  team_name: string | null;
   current_level: number;
   current_level_name: string;
   coaching_mode: CoachingMode;
   rolling_composite: number | null;
   scorable_prompt_count: number;
   last_active: string | null;
+}
+
+export interface Team {
+  id: string;
+  name: string;
+  member_count: number;
+  avg_level: number | null;
+  avg_composite: number | null;
+}
+
+export interface TrendPoint {
+  day: string;
+  avg_composite: number;
+  prompt_count: number;
+}
+
+export interface Trend {
+  scope: string;
+  points: TrendPoint[];
 }
 
 export interface LevelHistoryEntry {

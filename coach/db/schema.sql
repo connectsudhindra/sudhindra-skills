@@ -12,10 +12,17 @@ CREATE TABLE levels (
   next_level_tip TEXT
 );
 
+CREATE TABLE teams (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name       TEXT NOT NULL UNIQUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 CREATE TABLE users (
   id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name           TEXT NOT NULL,
   email          TEXT NOT NULL UNIQUE,
+  team_id        UUID REFERENCES teams(id),
   current_level  SMALLINT NOT NULL REFERENCES levels(level_num) DEFAULT 1,
   coaching_mode  TEXT NOT NULL DEFAULT 'in_session'
                    CHECK (coaching_mode IN ('in_session', 'end_of_session', 'off')),
@@ -23,6 +30,7 @@ CREATE TABLE users (
   created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+CREATE INDEX idx_users_team ON users (team_id);
 
 CREATE TABLE sessions (
   id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),

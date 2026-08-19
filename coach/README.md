@@ -15,6 +15,23 @@ That brings up Postgres (host port `5433`, deliberately not `5432` — avoids co
 
 Point a Claude Code session at this local stack by leaving `$CLAUDE_PLUGIN_DATA/coach/config.json`'s `api_base_url` at its default (`http://localhost:8787`) — which is also what a fresh install writes automatically.
 
+### Sample data
+
+The dashboard is empty until real usage accumulates. To see it populated immediately:
+
+```bash
+docker compose exec api python seed_sample_data.py
+```
+
+Creates 3 teams (Platform, Growth, Data) and 11 users with 28 days of backdated prompt history, each following one of four trajectories (`flat_weak`, `improving`, `strong_steady`, `dip_recover`) so the trend charts, level history, and radar all have something real to show — not just a flat line. Every row is tagged (`@sample.coach.local` emails), so it's safe to remove later:
+
+```bash
+docker compose exec api python seed_sample_data.py --wipe          # wipe, then reseed
+docker compose exec api python seed_sample_data.py --wipe --wipe-only   # wipe, don't reseed
+```
+
+It talks directly to Postgres (not through the API), because backdating `submitted_at` across 28 days is what makes the trend charts worth looking at, and the real `POST /prompts` endpoint always uses `now()`. It replays the exact leveling logic from `services/level_engine.py` chronologically as it inserts each prompt, so seeded users' levels and `level_history` are what the real system would have produced, not hand-picked.
+
 ## Running the tests
 
 ```bash
@@ -42,6 +59,10 @@ Three real constraints from Claude Code's hook system shaped every design decisi
 ## Leveling policy
 
 A user's rolling average over their last 20 scored prompts (`config.ROLLING_WINDOW_SIZE`) is compared against each level's `min_score`, and they need at least 5 scored prompts (`config.MIN_SCORABLE_PROMPTS_TO_LEVEL`) before ever leaving level 1 — one good prompt shouldn't jump someone to Architect. `users.current_level` is **sticky upward-only**: a bad stretch never demotes the badge. `sessions.session_level` still captures a per-session dip independently, so a rough session is visible without being punitive.
+
+## Teams
+
+Users optionally belong to a `team` (`users.team_id`, nullable — solo use needs no team at all). `GET /teams` gives cross-team comparison (member count, average level, average rolling composite); `GET /users?team_id=` and the Team Roster's team filter chips scope down to one. `GET /dashboard/trend?team_id=&days=` returns a daily average-composite time series, org-wide or team-scoped — this is what the dashboard's trend charts are for: a flat snapshot can't show whether coaching is actually moving scores over time, a trend line can.
 
 ## What's deliberately out of scope for this version
 

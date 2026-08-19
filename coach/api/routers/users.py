@@ -10,7 +10,8 @@ router = APIRouter()
 
 _USER_SUMMARY_SQL = """
 SELECT
-  u.id, u.name, u.email, u.current_level, l.name AS current_level_name,
+  u.id, u.name, u.email, u.team_id, t.name AS team_name,
+  u.current_level, l.name AS current_level_name,
   u.coaching_mode,
   (
     SELECT AVG(ps.composite_score)
@@ -27,6 +28,7 @@ SELECT
   (SELECT max(p.submitted_at) FROM prompts p WHERE p.user_id = u.id) AS last_active
 FROM users u
 JOIN levels l ON l.level_num = u.current_level
+LEFT JOIN teams t ON t.id = u.team_id
 """
 
 
@@ -36,18 +38,26 @@ def _resolve_user_id_or_404(row) -> None:
 
 
 @router.get("/users", response_model=list[schemas.UserSummary])
-async def list_users(level: int | None = Query(default=None)) -> list[schemas.UserSummary]:
+async def list_users(
+    level: int | None = Query(default=None), team_id: str | None = Query(default=None)
+) -> list[schemas.UserSummary]:
     """Backs the Team Roster screen -- every installed user, optionally
-    filtered to one level."""
+    filtered to one level and/or one team."""
     sql = _USER_SUMMARY_SQL
-    params: tuple = ()
+    conditions: list[str] = []
+    params: list = []
     if level is not None:
-        sql += " WHERE u.current_level = %s"
-        params = (level,)
+        conditions.append("u.current_level = %s")
+        params.append(level)
+    if team_id is not None:
+        conditions.append("u.team_id = %s")
+        params.append(team_id)
+    if conditions:
+        sql += " WHERE " + " AND ".join(conditions)
     sql += " ORDER BY u.current_level DESC, rolling_composite DESC NULLS LAST"
 
     async with db.pool.connection() as conn, conn.cursor(row_factory=dict_row) as cur:
-        await cur.execute(sql, params)
+        await cur.execute(sql, tuple(params))
         rows = await cur.fetchall()
     return [schemas.UserSummary(**row) for row in rows]
 

@@ -95,6 +95,8 @@ class UserSummary(BaseModel):
     id: UUID
     name: str
     email: str
+    team_id: UUID | None
+    team_name: str | None
     current_level: int
     current_level_name: str
     coaching_mode: CoachingMode
@@ -107,3 +109,22 @@ class UserDetail(BaseModel):
     user: UserSummary
     level_history: list[dict]
     gccf_averages: GCCFScore | None
+
+
+class TeamOut(BaseModel):
+    id: UUID
+    name: str
+    member_count: int
+    avg_level: float | None
+    avg_composite: float | None
+
+
+class TrendPoint(BaseModel):
+    day: str
+    avg_composite: float
+    prompt_count: int
+
+
+class TrendResponse(BaseModel):
+    scope: str
+    points: list[TrendPoint]
