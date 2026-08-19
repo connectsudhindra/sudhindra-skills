@@ -2,18 +2,18 @@
 
 Agent skills for real engineering — not vibe coding.
 
-Developing real applications is hard. Approaches like GSD, BMAD, and Spec-Kit try to help by owning the process. But while doing so, they take away your control and make bugs in the process hard to resolve.
+Developing real applications is hard. Approaches like GSD, BMAD, and Spec-Kit try to help by owning the whole process for you. In doing so they take away your control, and make it hard to untangle things when the process itself produces a bug.
 
-These skills are designed to be small, easy to adapt, and composable. They work with any model. Hack around with them. Make them your own.
+These skills take the opposite bet: small, legible, easy to adapt, composable, model-agnostic. Read one before you run it. Fork it the moment it stops fitting how you work.
 
 ## Installation
 
-Two ways in, two philosophies. **The Claude Code plugin** installs the whole set as a managed, read-only bundle. **[skills.sh](https://skills.sh)** copies editable skill files into your project, so you can hack on them directly. Pick one — installing both leaves you with every skill twice.
+Two philosophies, pick one. **The Claude Code plugin** is a managed, read-only bundle — you get the whole set, updated in place. **[skills.sh](https://skills.sh)** copies the raw skill files into your project instead, so you own and can edit every line. Installing both just duplicates everything.
 
 <details>
 <summary><strong>Claude Code — as a plugin</strong></summary>
 
-This repo ships its own single-plugin marketplace, so no official listing is required:
+This repo is its own single-plugin marketplace, so there's no official listing to add first:
 
 ```
 /plugin marketplace add sudhindradesai/sudhindra-skills
@@ -29,99 +29,97 @@ This repo ships its own single-plugin marketplace, so no official listing is req
 npx skills@latest add sudhindradesai/sudhindra-skills
 ```
 
-Pick the skills you want, and which coding agents to install them on. **Make sure `setup-sudhindra-skills` is one of them.**
+You'll be asked which skills to take and which agents to wire them into. **Take `bootstrap`** — the rest lean on it.
 
 </details>
 
 <details>
-<summary><strong>Local dev — symlink straight in</strong></summary>
+<summary><strong>Working on this repo itself</strong></summary>
 
-If you're working on this repo itself (or just want it live on this machine without pushing anywhere first):
+No push required — this makes the skills live on your machine straight from the working tree:
 
 ```bash
 ./scripts/link-skills.sh
 ```
 
-This symlinks every skill into `~/.claude/skills` and `~/.agents/skills`. A `git pull` keeps them current; re-run the script after adding, removing, or renaming a skill.
+Symlinks every skill into `~/.claude/skills` and `~/.agents/skills`. Re-run it whenever a folder gets added, dropped, or renamed.
 
 </details>
 
-### Run `/setup-sudhindra-skills`
+### First command in any repo: `/bootstrap`
 
-In your agent, run it once per repo. It will:
+Run it once per project, before reaching for anything else here. It figures out:
 
-- Ask you which issue tracker you want to use (GitHub, GitLab, Linear, or local files)
-- Ask you what labels you apply to tickets when you triage them (`/triage` uses labels)
-- Ask you where you want to save any docs it creates
+- which issue tracker you're using (GitHub, GitLab, Linear, plain local files),
+- what your triage labels actually say (`/intake` reads them back),
+- where it should file the docs it writes.
 
-## Why These Skills Exist
+## Why this exists
 
-These skills fix common failure modes in agentic coding.
+Four failure modes, four fixes.
 
-### #1: The Agent Didn't Do What I Wanted
+### 1 — The build didn't match the brief
 
-The most common failure mode in software development is misalignment. You think the agent understood the brief. Then you see what it built — and realize it didn't understand you at all.
+Misalignment is the oldest failure in software, agent or human. You think the brief landed. Then the diff shows up and it's clear the brief never landed at all.
 
-The fix is a **grilling session** — getting the agent to ask detailed questions about what you're building, before it writes a line of code.
+The countermeasure is an interview before the keyboard, not after: make the agent interrogate the plan until nothing's left assumed.
 
-- [`/grill-me`](./skills/productivity/grill-me/SKILL.md) — for non-code uses
-- [`/grill-with-docs`](./skills/engineering/grill-with-docs/SKILL.md) — the same thing, but it also builds a shared project vocabulary as it goes (see below)
+- [`interrogate`](./skills/flow/interrogate/SKILL.md) — for anything that isn't code
+- [`cross-examine`](./skills/craft/cross-examine/SKILL.md) — the same interrogation, run inside a repo, leaving a paper trail behind it
 
-Use these *every* time you want to make a change of any real size.
+Reach for one of these before any change big enough to regret getting wrong.
 
-### #2: The Agent Is Way Too Verbose
+### 2 — Every answer is three paragraphs long
 
-At the start of a project, you and the agent are usually speaking different languages — the agent hasn't learned the project's jargon yet, so it spells everything out at length.
+Early in a project, you and the agent don't share a vocabulary yet — so it spells everything out, every time, because it has no shorthand to reach for.
 
-The fix is a shared language: a document that decodes the jargon used in the project, so both sides can talk in short, precise terms instead of long paraphrases.
+The fix is building that shorthand deliberately: a small glossary that turns "the thing where a lesson gets promoted into a real file on disk" into one word both sides now recognize.
 
-This is built into [`/grill-with-docs`](./skills/engineering/grill-with-docs/SKILL.md). It runs a grilling session that also sharpens a shared vocabulary and documents hard-to-explain decisions as ADRs, inline, as you go.
+`cross-examine` does this as a side effect of the interview — sharpening the shared vocabulary and writing down the hard calls as decision records while the conversation is still live, not after.
 
 > [!TIP]
-> A shared language has other benefits beyond reducing verbosity:
+> A shared vocabulary pays for itself beyond just shorter answers:
 >
-> - **Variables, functions and files are named consistently**, using the shared language
-> - The **codebase is easier to navigate** for the agent
-> - The agent **spends fewer tokens on thinking**, because it has a more concise language to think in
+> - names in the codebase stop drifting, because there's one word for each thing
+> - the agent navigates faster, because the map has fewer synonyms on it
+> - less of every reply is spent re-deriving what a term means
 
-### #3: The Code Doesn't Work
+### 3 — It compiles and it's still wrong
 
-Even when you and the agent are aligned on what to build, it can still produce code that's broken. That means your feedback loops are too weak — without feedback on how the code actually runs, the agent is flying blind.
+Alignment doesn't guarantee correctness. If the agent can't see how its own output behaves, it's guessing — and guesses compound.
 
-The fix is the usual tranche of feedback loops: static types, browser access, and automated tests.
+Close the loop with the standard tools: types, a runnable check, tests that fail before they pass.
 
-For tests, a red-green-refactor loop is critical — the agent writes a failing test first, then makes it pass. The **[`/tdd`](./skills/engineering/tdd/SKILL.md)** skill slots into any project and encourages exactly that.
+[`redgreen`](./skills/craft/redgreen/SKILL.md) drives red-green-refactor on whatever you're building, one thin vertical slice at a time. [`unravel`](./skills/craft/unravel/SKILL.md) does the same discipline for the bug that resists a first glance — refuses to theorize until it has a loop that reliably reproduces the failure.
 
-For debugging, **[`/diagnosing-bugs`](./skills/engineering/diagnosing-bugs/SKILL.md)** wraps best debugging practices into a disciplined loop, gated phase by phase, so the agent stops guessing and starts narrowing.
+### 4 — The codebase got harder to move in every week
 
-### #4: We Built A Ball Of Mud
+Speed of typing isn't the bottleneck agents remove — speed of *entangling* is what they add. A codebase can rot faster than any team ever rotted it by hand.
 
-Agents can radically speed up coding — which also accelerates software entropy. Codebases get more complex faster than ever.
+Two skills push back on that directly:
 
-The fix is caring about the design of the code, deliberately, at every layer:
+- [`blueprint`](./skills/craft/blueprint/SKILL.md) makes you name the modules you're about to touch before it writes the spec
+- [`foundation-check`](./skills/craft/foundation-check/SKILL.md) walks the codebase looking for places a small interface would hide a lot of mess, and hands you the list. Run it every few days — it's a scout, not a cleanup crew: on an old codebase it'll find real candidates, but it won't fix them for you.
 
-- [`/to-spec`](./skills/engineering/to-spec/SKILL.md) quizzes you about which modules you're touching before creating a spec
-- [`/improve-codebase-architecture`](./skills/engineering/improve-codebase-architecture/SKILL.md) surveys a codebase for deepening opportunities and hands you the candidates. Run it every few days. It's a survey, not a rescue: on a genuinely old codebase it finds real candidates, but it won't untangle the mud for you on its own.
+## What's in here
 
-## Reference
+Every skill splits on one question: does a human have to type it, or can the model reach for it on its own? **User-invoked** skills only fire when named — they're the orchestrators. **Model-invoked** skills carry the actual discipline and can be pulled in either way. An orchestrator can call a model-invoked skill; it never calls another orchestrator.
 
-These split on one axis — who can invoke them. **User-invoked** skills are reachable only when you type them (e.g. `/grill-me`); their job is to orchestrate. **Model-invoked** skills can be invoked by you _or_ reached for automatically by the agent when the task fits; they hold the reusable discipline. A user-invoked skill may invoke model-invoked skills, but never another user-invoked one.
+Full lists, same grouping: [`skills/craft/README.md`](./skills/craft/README.md) and [`skills/flow/README.md`](./skills/flow/README.md).
 
-See [`skills/engineering/README.md`](./skills/engineering/README.md) and [`skills/productivity/README.md`](./skills/productivity/README.md) for the full list, grouped the same way.
+### craft/ — the engineering set
 
-### Engineering
+Start at [`compass`](./skills/craft/compass/SKILL.md) — it's the router, and it knows the rest. Everything it can point you at: `cross-examine`, `intake`, `foundation-check`, `bootstrap`, `blueprint`, `breakdown`, `build`, `trailmap`, `sketch`, `unravel`, `scout`, `redgreen`, `lexicon`, `workbench`, `gatekeeper`, `peacemaker`, `handrail`.
 
-Daily code work: [`ask-sudhindra`](./skills/engineering/ask-sudhindra/SKILL.md) (start here — it's the router), `grill-with-docs`, `triage`, `improve-codebase-architecture`, `setup-sudhindra-skills`, `to-spec`, `to-tickets`, `implement`, `wayfinder`, `prototype`, `diagnosing-bugs`, `research`, `tdd`, `domain-modeling`, `codebase-design`, `code-review`, `resolving-merge-conflicts`, `wizard`.
+### flow/ — everything else you do with an agent
 
-### Productivity
+`interrogate`, `relay`, `mentor`, `envoy`, `clarify`, `interview`, `styleguide`.
 
-General workflow, not code-specific: `grill-me`, `handoff`, `teach`, `to-questionnaire`, `wait-what`, `grilling`, `writing-for-agents`.
+### The unpromoted buckets
 
-### Other buckets
+- **[`skills/toolbox/`](./skills/toolbox/README.md)** — narrow tools, kept around, not part of the plugin.
+- **[`skills/workshop/`](./skills/workshop/README.md)** — beta work, shared on purpose, promoted only once it earns it.
 
-- **[`skills/misc/`](./skills/misc/README.md)** — kept around but rarely used, not promoted in the plugin.
-- **[`skills/in-progress/`](./skills/in-progress/README.md)** — beta, public on purpose, excluded from the plugin until they graduate.
+## Contributing to this repo
 
-## Repo layout
-
-See [`AGENTS.md`](./AGENTS.md) for how skills are organized, how buckets and the plugin manifest relate, and the conventions for adding a new one.
+The rules for where a skill lives, how buckets and the plugin manifest stay in sync, and what a new skill owes the router, are in [`AGENTS.md`](./AGENTS.md).

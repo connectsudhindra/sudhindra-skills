@@ -1,20 +1,11 @@
-Skills are organized into bucket folders under `skills/`:
+Four buckets, one convention. `skills/` splits into `craft/` (daily engineering work), `flow/` (workflow tools that aren't code-specific), `toolbox/` (small utilities, kept but not promoted), and `workshop/` (beta — public on purpose, not yet in the plugin).
 
-- `engineering/` — daily code work
-- `productivity/` — daily non-code workflow tools
-- `misc/` — kept around but rarely used, not promoted
-- `in-progress/` — beta: public on purpose, feedback wanted, not shipped in the plugin
+`craft/` and `flow/` are **promoted**: everything in either one gets a line in the top-level `README.md` and a path in `.claude-plugin/plugin.json`. That array is exactly what the Claude Code plugin ships — a skill in `toolbox/` or `workshop/` that sneaks into it is a bug, not a feature.
 
-Every skill in `engineering/` or `productivity/` (the **promoted** buckets) must have a reference in the top-level `README.md` and an entry in `.claude-plugin/plugin.json`'s `skills` array (the Claude Code plugin ships exactly the promoted set). Skills in `misc/` and `in-progress/` must not appear in either.
+`.claude-plugin/marketplace.json` is what makes this repo installable on its own, since there's no official marketplace listing backing it. Run `claude plugin validate . --strict` any time you touch a manifest, before you consider the change finished.
 
-Install commands live in `README.md`. `.claude-plugin/marketplace.json` makes the repo its own single-plugin marketplace — this is the documented install route for this repo, since it isn't in Claude Code's official marketplace. Run `claude plugin validate . --strict` after touching either manifest.
+Documentation nests the same way skills do: a bucket `README.md` lists every skill it holds, one line each, name linked to `SKILL.md`; the promoted buckets additionally split that list into **User-invoked** and **Model-invoked** (see `.agents/invocation.md` for what draws that line).
 
-Each skill entry in the top-level `README.md` must link the skill name to its `SKILL.md`.
+The one skill that has to stay accurate no matter what else changes is [`compass`](./skills/craft/compass/SKILL.md) — it's the router, the single document that says which skill to reach for and how they chain together. Adding, renaming, retiring, or rewiring a user-reachable skill without going back to update `compass/SKILL.md` leaves the map wrong, which is worse than no map.
 
-Each bucket folder has a `README.md` that lists every skill in the bucket with a one-line description, with the skill name linked to its `SKILL.md`. The promoted buckets' `README.md`s and the top-level `README.md` group entries into **User-invoked** and **Model-invoked**; non-promoted bucket `README.md`s (`misc/`, `in-progress/`) use a flat list.
-
-Every `SKILL.md` is either user-invoked (`disable-model-invocation: true` plus `policy.allow_implicit_invocation: false` in `agents/openai.yaml`, reachable only by the human) or model-invoked (model- or user-reachable). See [.agents/invocation.md](./.agents/invocation.md).
-
-[`ask-sudhindra`](./skills/engineering/ask-sudhindra/SKILL.md) is the router that maps every user-reachable skill and how they relate. Whenever you add, rename, remove, or change how a user-reachable skill fits the flows, re-read `ask-sudhindra`'s `SKILL.md` and update it so the map stays accurate — a new skill it never mentions, or a stale one it still routes to, is a router that lies.
-
-To (re)link every skill into the local harness skill directories (`~/.claude/skills`, `~/.agents/skills`), run `scripts/link-skills.sh`. Each entry is a symlink into this repo, so a `git pull` keeps installed skills current; re-run the script after adding, removing, or renaming a skill.
+To work on this repo locally without publishing anything, run `scripts/link-skills.sh`. It symlinks every skill into `~/.claude/skills` and `~/.agents/skills` so edits here take effect immediately — rerun it whenever a skill's folder name changes, or the old symlink just sits there stale.

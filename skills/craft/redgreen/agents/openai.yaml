@@ -1,0 +1,3 @@
+interface:
+  display_name: "Redgreen"
+  short_description: "Test-driven red-green-refactor"

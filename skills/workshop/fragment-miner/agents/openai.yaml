@@ -1,0 +1,5 @@
+interface:
+  display_name: "Fragment Miner"
+  short_description: "Mine raw writing fragments"
+policy:
+  allow_implicit_invocation: false

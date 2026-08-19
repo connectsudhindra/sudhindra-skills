@@ -1,0 +1,3 @@
+interface:
+  display_name: "Git Tripwire"
+  short_description: "Block dangerous git commands"

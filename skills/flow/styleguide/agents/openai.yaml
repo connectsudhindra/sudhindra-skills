@@ -1,0 +1,3 @@
+interface:
+  display_name: "Styleguide"
+  short_description: "Write documents agents consume"

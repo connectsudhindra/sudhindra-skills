@@ -1,0 +1,5 @@
+interface:
+  display_name: "TS Modules Rig"
+  short_description: "Enforce deep TypeScript modules"
+policy:
+  allow_implicit_invocation: false

@@ -1,0 +1,3 @@
+interface:
+  display_name: "Shoehorn Migrate"
+  short_description: "Replace test assertions with shoehorn"

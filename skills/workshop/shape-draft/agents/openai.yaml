@@ -1,0 +1,5 @@
+interface:
+  display_name: "Shape Draft"
+  short_description: "Shape raw material into an article"
+policy:
+  allow_implicit_invocation: false

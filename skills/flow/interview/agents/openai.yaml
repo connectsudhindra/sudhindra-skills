@@ -1,0 +1,3 @@
+interface:
+  display_name: "Interview"
+  short_description: "Stress-test thinking a round of questions at a time"
