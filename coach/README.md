@@ -2,6 +2,43 @@
 
 Scores every prompt submitted in a Claude Code session on four dimensions — **G**oal, **C**ontext, **C**onstraints, **F**ormat — and tracks growth through five levels: **Operator → Composer → Delegator → Orchestrator → Architect**. Ships as part of installing the `sudhindra-skills` plugin: the hooks auto-register on install, and a first-run `SessionStart` writes working local defaults with no setup step required. See [`skills/workshop/levelset`](../skills/workshop/levelset/SKILL.md) to point at a shared team backend instead, and [`skills/workshop/standing`](../skills/workshop/standing/SKILL.md) for an on-demand "how am I doing" check.
 
+## What data gets sent, and how often
+
+Event-driven, not polled — one HTTP call per Claude Code hook event, fired inline as it happens. No batching, no background upload queue.
+
+| Trigger | Fires | Request |
+| --- | --- | --- |
+| `UserPromptSubmit` | Every prompt you submit | `POST /prompts` |
+| `SessionEnd` | Once, when a session closes | `POST /sessions/end` (detached background process, see below) |
+| `SessionStart` | Once per session begin/resume/clear | `GET /health`; `GET /users/{email}/undelivered-feedback` if you're in `end_of_session` mode |
+
+**`POST /prompts`** — the payload sent on every single prompt (`hooks/on_prompt_submit.py`):
+
+```json
+{
+  "user_email": "you@example.com",
+  "user_name": null,
+  "claude_session_id": "<claude's session id>",
+  "prompt_text": "<the full prompt text you typed>",
+  "is_scorable": true,
+  "request_llm_score": true
+}
+```
+
+**`prompt_text` is sent in full and unredacted.** If you paste a secret into a prompt, it goes to this endpoint and is stored in Postgres verbatim — there's no scrubbing. Worth knowing before pointing `api_base_url` at anything other than your own machine (see Teams and the auth caveat below). 2-second timeout, best-effort: dropped silently on any failure, never retried, never queued locally (see "Why this is built the way it is").
+
+**`POST /sessions/end`** — fired once per session close, from the detached worker, not the hook itself:
+
+```json
+{ "user_email": "you@example.com", "claude_session_id": "<claude's session id>" }
+```
+
+No prompt content in this one — it just triggers the server-side session-close computation (`session_level`, and an end-of-session summary if you're in that mode). 5-second timeout, since the detached worker isn't racing a hook budget.
+
+**`GET /health`** and **`GET /users/{email}/undelivered-feedback`** — fired once at session start, no body, 1-second timeout each. The second one only fires in `end_of_session` mode, and only sends your email in the URL path — no prompt content.
+
+Every request carries an `X-Coach-Token` header when `COACH_API_TOKEN` is set locally (empty by default — see the auth caveat below), and goes to whatever `api_base_url` is in `$CLAUDE_PLUGIN_DATA/coach/config.json` (`http://localhost:8787` unless you've run `levelset` to point it at a shared backend).
+
 ## Running it locally
 
 ```bash
