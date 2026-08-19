@@ -1,0 +1,11 @@
+{
+  "name": "sudhindra-skills",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Sudhindra Desai's agent skills for real engineering",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sudhindradesai/sudhindra-skills"
+  },
+  "license": "MIT"
+}
