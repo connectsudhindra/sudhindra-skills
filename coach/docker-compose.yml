@@ -40,5 +40,20 @@ services:
     ports:
       - "5173:5173"
 
+  mcp:
+    build: ./mcp
+    environment:
+      # Internal docker network address, not the host-published 8787 --
+      # this service talks to `api` server-to-server, it never runs in a
+      # browser the way `ui` does.
+      COACH_API_BASE_URL: http://api:8000
+      COACH_API_TOKEN: ${COACH_API_TOKEN:-}
+      COACH_MCP_HOST: 0.0.0.0
+      COACH_MCP_PORT: 8788
+    depends_on:
+      - api
+    ports:
+      - "8788:8788"
+
 volumes:
   coach_pgdata:

@@ -48,9 +48,49 @@ docker compose up -d
 curl localhost:8787/health
 ```
 
-That brings up Postgres (host port `5433`, deliberately not `5432` — avoids colliding with a dev's own local instance), the FastAPI backend (`8787`), and a Vite dev server for the dashboard (`5173`). Schema and the five seeded levels apply automatically on first boot via `docker-entrypoint-initdb.d`; for schema changes against an already-running database, add a file under `db/migrations/` and run `python db/migrate.py`.
+That brings up Postgres (host port `5433`, deliberately not `5432` — avoids colliding with a dev's own local instance), the FastAPI backend (`8787`), a Vite dev server for the dashboard (`5173`), and the MCP server (`8788`, see below). Schema and the five seeded levels apply automatically on first boot via `docker-entrypoint-initdb.d`; for schema changes against an already-running database, add a file under `db/migrations/` and run `python db/migrate.py`.
 
 Point a Claude Code session at this local stack by leaving `$CLAUDE_PLUGIN_DATA/coach/config.json`'s `api_base_url` at its default (`http://localhost:8787`) — which is also what a fresh install writes automatically.
+
+## MCP server
+
+`mcp/` exposes every capability the REST API has as an MCP tool over Streamable HTTP, so any MCP client — Claude Desktop, Claude Code, a custom agent — can score a prompt or read coaching data directly, without going through the dashboard or the hooks. It's a thin adapter, not a second implementation: every tool is one HTTP call into the same FastAPI backend (`mcp/server.py`'s `_request`) — there's exactly one source of truth for scoring, leveling, and progress logic, and this file owns none of it.
+
+```bash
+docker compose up -d mcp   # included in the default `docker compose up -d`
+```
+
+Connect at `http://localhost:8788/mcp` (or `http://mcp:8788/mcp` from inside the docker network). With the Claude Code CLI:
+
+```bash
+claude mcp add --transport http gccf-coach http://localhost:8788/mcp
+```
+
+**17 tools**, one per API capability:
+
+| Tool | What it does |
+| --- | --- |
+| `score_prompt` | Score a draft prompt on GCCF — **no persistence**, doesn't touch a user's level. The "check before you send it" tool. |
+| `submit_prompt` | Score AND persist a prompt for a real user/session — same effect as the `UserPromptSubmit` hook. |
+| `end_session` | Close a session — same effect as the `SessionEnd` hook's detached worker. |
+| `list_users` | Every user, optionally filtered by level and/or team. |
+| `get_user` | One user's summary, level history, all-time GCCF averages. |
+| `get_user_by_email` | Resolve a user by email. |
+| `get_user_prompts` | A user's scored prompt history, full breakdown per prompt. |
+| `get_user_sessions` | A user's sessions. |
+| `get_user_feedback` | The coaching feedback a user has actually received. |
+| `get_user_progress` | Is this person actually improving, per dimension. |
+| `get_session` | One session's full detail, every prompt in it. |
+| `list_teams` | Every team, cross-team comparison. |
+| `get_team_progress` | Is this team actually improving, per dimension. |
+| `list_levels` | The five levels, thresholds, descriptions, next-level tips. |
+| `get_level_distribution` | How many users sit at each level. |
+| `get_scoring_comparison` | Heuristic-vs-LLM agreement across every doubly-scored prompt. |
+| `get_trend` | Daily per-dimension averages, org-wide or team-scoped. |
+
+Every list-returning tool wraps its result as `{"items": [...], "count": N}` rather than a bare array — the MCP SDK represents a list return value as one content block *per item*, which reads as "only got the first result" if a client (or a quick manual test, which is how this was caught) only looks at the first content block. One object, one content block, always.
+
+Carries the same `X-Coach-Token` auth as the REST API (`COACH_API_TOKEN`) — set it in `.env` and it's honored on every tool call automatically. In `docker-compose.yml`, the `mcp` service talks to `api` over the internal docker network (`http://api:8000`), not the host-published `8787` — same reasoning as why `ui` is the odd one out and *does* use the host port: `ui` runs client-side in a browser, `mcp` runs server-side like `api` does.
 
 ### Sample data
 

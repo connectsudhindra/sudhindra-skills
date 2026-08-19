@@ -177,3 +177,14 @@ class SessionSummary(BaseModel):
 class SessionDetail(BaseModel):
     session: SessionSummary
     prompts: list[PromptOut]
+
+
+class ScoreRequest(BaseModel):
+    prompt_text: str
+    include_llm: bool = False
+
+
+class ScoreResponse(BaseModel):
+    heuristic: GCCFScore
+    llm: GCCFScore | None = None
+    llm_error: str | None = None

@@ -122,7 +122,7 @@ Start at [`compass`](./skills/craft/compass/SKILL.md) — it's the router, and i
 
 ## Prompt coaching, built in
 
-Installing this plugin also activates a GCCF (Goal/Context/Constraints/Format) prompt coach: every prompt gets scored, weak ones get a live nudge to sharpen before they burn a turn, and growth tracks through five levels — Operator, Composer, Delegator, Orchestrator, Architect. It starts working the moment the plugin installs, no setup step required. See [`coach/README.md`](./coach/README.md) for how it's built and why; [`levelset`](./skills/workshop/levelset/SKILL.md) to point it at a shared team backend; [`standing`](./skills/workshop/standing/SKILL.md) to check where you stand on demand.
+Installing this plugin also activates a GCCF (Goal/Context/Constraints/Format) prompt coach: every prompt gets scored, weak ones get a live nudge to sharpen before they burn a turn, and growth tracks through five levels — Operator, Composer, Delegator, Orchestrator, Architect. It starts working the moment the plugin installs, no setup step required. The same data is also reachable as 17 MCP tools (`coach/mcp/`) — score a draft prompt, check anyone's progress, pull a team trend — for any MCP client, not just the dashboard. See [`coach/README.md`](./coach/README.md) for how it's built and why; [`levelset`](./skills/workshop/levelset/SKILL.md) to point it at a shared team backend; [`standing`](./skills/workshop/standing/SKILL.md) to check where you stand on demand.
 
 ## Contributing to this repo
 

@@ -13,7 +13,7 @@ from psycopg.rows import dict_row
 
 import config
 import db
-from routers import dashboard, health, prompts, sessions, teams, users
+from routers import dashboard, health, levels, prompts, score, sessions, teams, users
 from services.coaching import compose_end_of_session_summary
 from services.level_engine import compute_session_level
 
@@ -97,7 +97,9 @@ app.add_middleware(
 
 app.include_router(health.router)
 app.include_router(prompts.router)
+app.include_router(score.router)
 app.include_router(sessions.router)
 app.include_router(users.router)
 app.include_router(teams.router)
+app.include_router(levels.router)
 app.include_router(dashboard.router)
