@@ -5,7 +5,7 @@ Public because feedback is the point, not because they're finished. Nothing here
 Grab one directly, since the plugin bundle skips this whole folder:
 
 ```bash
-npx skills@latest add sudhindradesai/sudhindra-skills --skill=<name>
+npx skills@latest add connectsudhindra-gif/sudhindra-skills --skill=<name>
 ```
 
 - **[spec-loop](./spec-loop/SKILL.md)** *(user-invoked)* — grills you into an implementable workflow spec across multiple sessions, treating the working directory as persistent state

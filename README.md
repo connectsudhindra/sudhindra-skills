@@ -16,7 +16,7 @@ Two philosophies, pick one. **The Claude Code plugin** is a managed, read-only b
 This repo is its own single-plugin marketplace, so there's no official listing to add first:
 
 ```
-/plugin marketplace add sudhindradesai/sudhindra-skills
+/plugin marketplace add connectsudhindra-gif/sudhindra-skills
 /plugin install sudhindra-skills@sudhindra-skills
 ```
 
@@ -26,7 +26,7 @@ This repo is its own single-plugin marketplace, so there's no official listing t
 <summary><strong>Codex, and other agents — skills.sh</strong></summary>
 
 ```bash
-npx skills@latest add sudhindradesai/sudhindra-skills
+npx skills@latest add connectsudhindra-gif/sudhindra-skills
 ```
 
 You'll be asked which skills to take and which agents to wire them into. **Take `bootstrap`** — the rest lean on it.
