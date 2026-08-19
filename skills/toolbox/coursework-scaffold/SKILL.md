@@ -3,35 +3,15 @@ name: coursework-scaffold
 description: Create exercise directory structures with sections, problems, solutions, and explainers that pass linting. Use when user wants to scaffold exercises, create exercise stubs, or set up a new course section.
 ---
 
-# Scaffold Exercises
+# Coursework Scaffold
 
-Create exercise directory structures that pass `pnpm ai-hero-cli internal lint`, then commit with `git commit`.
+Builds exercise directories that pass `pnpm ai-hero-cli internal lint` on the first try, then commits them.
 
-## Directory naming
+**Naming.** Sections are `XX-section-name/` under `exercises/` (`01-retrieval-skill-building`). Exercises inside a section are `XX.YY-exercise-name/` (`01.03-retrieval-with-bm25`) — section number, then exercise number, dash-case throughout.
 
-- **Sections**: `XX-section-name/` inside `exercises/` (e.g., `01-retrieval-skill-building`)
-- **Exercises**: `XX.YY-exercise-name/` inside a section (e.g., `01.03-retrieval-with-bm25`)
-- Section number = `XX`, exercise number = `XX.YY`
-- Names are dash-case (lowercase, hyphens)
+**Variants.** Every exercise carries at least one of `problem/` (student workspace, TODOs), `solution/` (reference implementation), `explainer/` (concept only, no TODOs). When stubbing without a stated preference, default to `explainer/`.
 
-## Exercise variants
-
-Each exercise needs at least one of these subfolders:
-
-- `problem/` - student workspace with TODOs
-- `solution/` - reference implementation
-- `explainer/` - conceptual material, no TODOs
-
-When stubbing, default to `explainer/` unless the plan specifies otherwise.
-
-## Required files
-
-Each subfolder (`problem/`, `solution/`, `explainer/`) needs a `readme.md` that:
-
-- Is **not empty** (must have real content, even a single title line works)
-- Has no broken links
-
-When stubbing, create a minimal readme with a title and a description:
+**What every subfolder needs.** A `readme.md` that isn't empty (a title line clears the bar) and has no broken links. When stubbing:
 
 ```md
 # Exercise Title
@@ -39,46 +19,19 @@ When stubbing, create a minimal readme with a title and a description:
 Description here
 ```
 
-If the subfolder has code, it also needs a `main.ts` (>1 line). But for stubs, a readme-only exercise is fine.
+Code in the subfolder means it also needs a `main.ts` with real content (>1 line) — but a readme-only stub is fine on its own.
 
-## Workflow
+**The lint rules, summarized:** subfolders exist per exercise; at least one of `problem/`, `explainer/`, or `explainer.1/` is present; the primary subfolder's `readme.md` exists and isn't empty; no `.gitkeep`, no `speaker-notes.md`, no broken links, no `pnpm run exercise` commands inside readmes; `main.ts` required per subfolder unless it's readme-only.
 
-1. **Parse the plan** - extract section names, exercise names, and variant types
-2. **Create directories** - `mkdir -p` for each path
-3. **Create stub readmes** - one `readme.md` per variant folder with a title
-4. **Run lint** - `pnpm ai-hero-cli internal lint` to validate
-5. **Fix any errors** - iterate until lint passes
+## Building from a plan
 
-## Lint rules summary
+1. Parse the plan for section names, exercise names, and which variants each one needs.
+2. `mkdir -p` every path.
+3. Drop a titled stub `readme.md` into each variant folder.
+4. Run `pnpm ai-hero-cli internal lint`.
+5. Fix whatever it flags, and lint again until clean.
 
-The linter (`pnpm ai-hero-cli internal lint`) checks:
-
-- Each exercise has subfolders (`problem/`, `solution/`, `explainer/`)
-- At least one of `problem/`, `explainer/`, or `explainer.1/` exists
-- `readme.md` exists and is non-empty in the primary subfolder
-- No `.gitkeep` files
-- No `speaker-notes.md` files
-- No broken links in readmes
-- No `pnpm run exercise` commands in readmes
-- `main.ts` required per subfolder unless it's readme-only
-
-## Moving/renaming exercises
-
-When renumbering or moving exercises:
-
-1. Use `git mv` (not `mv`) to rename directories - preserves git history
-2. Update the numeric prefix to maintain order
-3. Re-run lint after moves
-
-Example:
-
-```bash
-git mv exercises/01-retrieval/01.03-embeddings exercises/01-retrieval/01.04-embeddings
-```
-
-## Example: stubbing from a plan
-
-Given a plan like:
+A plan that reads:
 
 ```
 Section 05: Memory Skill Building
@@ -87,7 +40,7 @@ Section 05: Memory Skill Building
 - 05.03 Long-term Memory
 ```
 
-Create:
+becomes:
 
 ```bash
 mkdir -p exercises/05-memory-skill-building/05.01-introduction-to-memory/explainer
@@ -95,12 +48,12 @@ mkdir -p exercises/05-memory-skill-building/05.02-short-term-memory/{explainer,p
 mkdir -p exercises/05-memory-skill-building/05.03-long-term-memory/explainer
 ```
 
-Then create readme stubs:
+with a titled readme dropped into each leaf folder — `# Introduction to Memory`, `# Short-term Memory` (×3, one per variant), `# Long-term Memory`.
 
-```
-exercises/05-memory-skill-building/05.01-introduction-to-memory/explainer/readme.md -> "# Introduction to Memory"
-exercises/05-memory-skill-building/05.02-short-term-memory/explainer/readme.md -> "# Short-term Memory"
-exercises/05-memory-skill-building/05.02-short-term-memory/problem/readme.md -> "# Short-term Memory"
-exercises/05-memory-skill-building/05.02-short-term-memory/solution/readme.md -> "# Short-term Memory"
-exercises/05-memory-skill-building/05.03-long-term-memory/explainer/readme.md -> "# Long-term Memory"
+## Renumbering later
+
+Use `git mv`, never plain `mv` — it's the only way the rename keeps its git history. Update the numeric prefix as part of the same move, and re-lint once the dust settles:
+
+```bash
+git mv exercises/01-retrieval/01.03-embeddings exercises/01-retrieval/01.04-embeddings
 ```

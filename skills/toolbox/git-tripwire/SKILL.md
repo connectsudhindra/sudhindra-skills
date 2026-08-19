@@ -3,42 +3,15 @@ name: git-tripwire
 description: Set up Claude Code hooks to block dangerous git commands (push, reset --hard, clean, branch -D, etc.) before they execute. Use when user wants to prevent destructive git operations, add git safety hooks, or block git push/reset in Claude Code.
 ---
 
-# Setup Git Guardrails
+# Git Tripwire
 
-Sets up a PreToolUse hook that intercepts and blocks dangerous git commands before Claude executes them.
+A `PreToolUse` hook that catches a dangerous git command and stops it before Claude ever runs it — `git push` (including `--force`), `git reset --hard`, `git clean -f`/`-fd`, `git branch -D`, `git checkout .`/`git restore .`. When one trips the wire, Claude sees a message saying it doesn't have authority to run that command — not a crash, a refusal.
 
-## What Gets Blocked
+**Scope first.** This project only (`.claude/settings.json`) or every project on this machine (`~/.claude/settings.json`)? Ask before doing anything else.
 
-- `git push` (all variants including `--force`)
-- `git reset --hard`
-- `git clean -f` / `git clean -fd`
-- `git branch -D`
-- `git checkout .` / `git restore .`
+**Place the script.** [scripts/guard.sh](scripts/guard.sh) is the bundled hook. Copy it to `.claude/hooks/guard.sh` (project scope) or `~/.claude/hooks/guard.sh` (global), then `chmod +x` it.
 
-When blocked, Claude sees a message telling it that it does not have authority to access these commands.
-
-## Steps
-
-### 1. Ask scope
-
-Ask the user: install for **this project only** (`.claude/settings.json`) or **all projects** (`~/.claude/settings.json`)?
-
-### 2. Copy the hook script
-
-The bundled script is at: [scripts/block-dangerous-git.sh](scripts/block-dangerous-git.sh)
-
-Copy it to the target location based on scope:
-
-- **Project**: `.claude/hooks/block-dangerous-git.sh`
-- **Global**: `~/.claude/hooks/block-dangerous-git.sh`
-
-Make it executable with `chmod +x`.
-
-### 3. Add hook to settings
-
-Add to the appropriate settings file:
-
-**Project** (`.claude/settings.json`):
+**Wire it into settings.** Merge this into `hooks.PreToolUse` in the target settings file — don't clobber whatever else is already there:
 
 ```json
 {
@@ -49,7 +22,7 @@ Add to the appropriate settings file:
         "hooks": [
           {
             "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/block-dangerous-git.sh"
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/guard.sh"
           }
         ]
       }
@@ -58,38 +31,12 @@ Add to the appropriate settings file:
 }
 ```
 
-**Global** (`~/.claude/settings.json`):
+(Global scope: same shape, `command` becomes `~/.claude/hooks/guard.sh` instead.)
 
-```json
-{
-  "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "~/.claude/hooks/block-dangerous-git.sh"
-          }
-        ]
-      }
-    ]
-  }
-}
-```
+**Offer customization.** Ask whether anything should be added to or dropped from the blocked-pattern list, and edit the copied script if so.
 
-If the settings file already exists, merge the hook into existing `hooks.PreToolUse` array — don't overwrite other settings.
-
-### 4. Ask about customization
-
-Ask if user wants to add or remove any patterns from the blocked list. Edit the copied script accordingly.
-
-### 5. Verify
-
-Run a quick test:
+**Prove it works.** Feed the script a blocked command directly and confirm it exits 2 with a BLOCKED message on stderr:
 
 ```bash
 echo '{"tool_input":{"command":"git push origin main"}}' | <path-to-script>
 ```
-
-Should exit with code 2 and print a BLOCKED message to stderr.
