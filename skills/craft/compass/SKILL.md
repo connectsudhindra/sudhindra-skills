@@ -4,87 +4,69 @@ description: Ask which skill or flow fits your situation. A router over the skil
 disable-model-invocation: true
 ---
 
-# Ask Sudhindra
+# Compass
 
-You don't remember every skill, so ask.
+Nobody holds thirty-five skill names in their head. That's what this one is for — point it at your situation, it points back at a flow.
 
-A **flow** is a path through the skills. Most paths run along one **main flow**, and two **on-ramps** merge onto it. Everything else is standalone, or a vocabulary layer that runs underneath.
+Everything below sits on one spine, the **main flow**, with two **on-ramps** that feed into it, a **health check** that runs beside it, a **vocabulary layer** underneath it, and a shelf of **standalone** tools that never join it at all.
 
-## The main flow: idea → ship
+## Spine: idea → shipped
 
-The route most work travels. You have an idea and want it built.
+1. **Interview the idea.** In a repo, that's **`/cross-examine`** — it keeps what it learns in `CONTEXT.md` and ADRs as it goes, so start here whenever there's a working directory under you. No repo yet? Jump to `/interrogate` under Standalone instead; both wrap the same `/interview` primitive, `cross-examine` is just the one with a paper trail, which is why it wins whenever there's somewhere to leave one.
 
-1. **`/cross-examine`** — sharpen the idea by interview. Start here whenever you are **working in a working directory**: it's stateful, retaining what it learns in `CONTEXT.md` and ADRs. (No working directory? Use `/interrogate` — see Standalone. Both run the same `/interview` primitive; `cross-examine` is the one that leaves a paper trail, which makes it the better of the two whenever a repo is there to leave it in.)
-2. **Branch — can you settle every question in conversation?** If a question needs a runnable answer (state, business logic, a UI you have to see), detour through a prototype, bridged by **`/relay`** in both directions (a prototype lives in its own directory, which is exactly what `/relay` is for — see Phase boundaries):
-   - **`/relay`** out, then open a fresh session against that file,
-   - **`/sketch`** to answer the question with throwaway code,
-   - **`/relay`** back what you learned, and reference it from the original idea thread.
-3. **Branch — is this a multi-session build?**
-   - **Yes** → **`/blueprint`** (turn the thread into a spec), then **`/breakdown`** to split it into tracer-bullet tickets, each declaring its **blocking edges**. On a local tracker that's one file per ticket under `.scratch/<feature>/issues/`, worked blockers-first by hand; on a real tracker the edges become native blocking links, so any ticket whose blockers are done can be grabbed — kick off **`/build`** per ticket, **`/clear`ing context between each one**. Each ticket is self-contained, so the last one's context is disposable.
-   - **No** → **`/build`** right here, in the same context window.
+2. **Hit a question conversation can't settle?** State, business logic, a UI you'd have to look at — detour through code you'll throw away:
+   - **`/relay`** out to a scratch directory,
+   - **`/sketch`** the answer as disposable code,
+   - **`/relay`** back in with what you learned, cited from the original thread.
 
-   Either way, **`/build`** builds each issue by driving **`/redgreen`** internally — one red-green slice at a time — then closes out by running **`/gatekeeper`**, a two-axis review (Standards + Spec) of the diff, before committing. Reach for **`/redgreen`** on its own when you just want to build a concrete behaviour test-first without a full spec, and **`/gatekeeper`** on its own whenever you want to review a branch or PR against a fixed point.
+3. **Size the build.**
+   - **Multi-session** → **`/blueprint`** turns the thread into a spec, **`/breakdown`** splits the spec into tracer-bullet tickets with their **blocking edges** made explicit (one file per ticket in `.scratch/<feature>/issues/` on a local tracker; native blocking links on a real one — either way, anything unblocked is gettable). Take each ticket into **`/build`**, `/clear`ing between tickets since each one is self-contained.
+   - **Fits in this window** → straight to **`/build`**, no detour through tickets at all.
 
-### Context hygiene
+   Either path lands in the same place: `/build` drives **`/redgreen`** internally, one slice at a time, then closes with **`/gatekeeper`** — a Standards-and-Spec review of the diff — before it lets you commit. Either half also stands alone: `/redgreen` on its own for a test-first change with no spec behind it, `/gatekeeper` on its own to review a branch that's already up.
 
-Keep steps 1–3 in **one unbroken context window** — don't compact or clear until after `/breakdown` — so the grilling, spec, and tickets all build on the same thinking. Each `/build` then starts fresh, working from the ticket.
-
-The limit on this is the **smart zone**: the window (~150k tokens on state-of-the-art models) within which the model still reasons sharply. If a session approaches it before `/breakdown`, don't push on degraded — `/compact` at the nearest phase boundary and carry on (see Phase boundaries).
+**Don't break the spine mid-build.** Steps 1 through 3 want to sit in one unbroken context — no `/compact`, no `/clear` — until `/breakdown` is done, so the interview, the spec, and the tickets all reason from the same material. `/build` is what starts fresh, per ticket, after that. The ceiling on this is the **smart zone** (~150k tokens of sharp reasoning on current models) — approaching it before `/breakdown` means `/compact` at the next boundary, not push through degraded (see Boundaries, below).
 
 ## On-ramps
 
-A starting situation that generates work, then merges onto the main flow.
+Things that generate work and feed it onto the spine.
 
-- **Bugs and requests piling up** → **`/intake`**. It moves issues through triage roles and produces agent-ready issues, which **`/build`** later picks up.
+**A backlog forming from outside** → **`/intake`**. Walks incoming issues through triage roles until they're agent-ready, then `/build` picks them up. Reserved for issues you *didn't* write — bug reports, cold feature requests. A ticket `/breakdown` already produced is already agent-ready; running it through `/intake` too is redundant.
 
-  Triage is only for issues **you didn't create** — bug reports, incoming feature requests, anything that arrives raw. Tickets that `/breakdown` produced are already agent-ready, so **don't triage them**.
+**Something's broken and won't explain itself** → **`/unravel`**. For the bug that survives a first glance: the flake, the regression wedged between two good states. Refuses to theorize before it has a loop that reliably goes red on *this* bug, fixes it, then locks the fix down with a regression test. If the post-mortem finds no clean seam to pin the fix to, it hands off to `/foundation-check`.
 
-- **Something's broken** → **`/unravel`**. For the hard ones: the bug that resists a first glance, the intermittent flake, the regression that crept in between two known-good states. It refuses to theorise until it has a **tight feedback loop** — one command that already goes red on *this* bug — then fixes with a regression test. Its post-mortem hands off to **`/foundation-check`** when the real finding is that there's no good seam to lock the bug down.
+**Fog — a greenfield build or a feature too big to see the end of** → **`/trailmap`**, the heaviest flow here. Charts a shared map of decision tickets and burns through them one at a time, producing decisions rather than deliverables, until the way is visible. `/cross-examine` is for an idea one session can hold; `/trailmap` is for the idea that can't fit — reach for it only there, it's too slow for a well-scoped feature. When the fog clears, it hands off rather than builds: rejoin the spine at `/blueprint`, which folds the map's decisions into a buildable plan. Skipping straight to `/build` throws that linked reasoning away — fine only if the effort turned out smaller than it looked.
 
-- **A huge, foggy effort — a greenfield project or a huge feature build, too big for one session** → **`/trailmap`**, the most cognitively demanding flow here. When the way from here to the destination isn't visible yet, it charts a **shared map** of **decision tickets** on the issue tracker and resolves them one at a time — producing **decisions, not deliverables** — until the fog is pushed back and the way is clear. Where **`/cross-examine`** sharpens an idea you can hold in one session, wayfinder is for the idea you can't — and it's slower and denser, so save it for exactly that, never a well-scoped feature.
+## Standing upkeep
 
-  When the map clears, **it hands off, it doesn't build**: merge onto the main flow at **`/blueprint`**, which collapses the map's linked decisions into a buildable plan, then `/breakdown` and `/build` as usual. Looping the map straight into `/build` skips that collapse and throws the linked detail away — go straight to `/build` only when the effort turned out genuinely small.
+**`/foundation-check`** — not feature work, maintenance. Run it whenever there's a spare moment; it surfaces deepening opportunities in the existing codebase, and picking one is itself an idea to carry into `/cross-examine`. It's the scout that finds candidates — `/workbench`, below, is the bench you design the chosen one on.
 
-## Codebase health
+## The vocabulary underneath
 
-Not feature work — upkeep.
+Two model-invoked skills that other skills quietly lean on. Go to them directly when the problem is the *words*, not the process.
 
-- **`/foundation-check`** — run whenever you have a spare moment to keep the codebase good for agents to operate in. It surfaces **deepening opportunities**; picking one _generates an idea_ you can take into the main flow at `/cross-examine`. It's the survey that finds the candidates; **`/workbench`** (below) is the bench you design the chosen one on.
+- **`/lexicon`** — sharpens the project's domain language: a fuzzy term challenged, an overloaded word split apart, a hard call written down as an ADR. It's the active discipline behind `CONTEXT.md` staying a clean glossary instead of a stale one; `/cross-examine` drives it.
+- **`/workbench`** — the vocabulary for a module's *shape*: interface, depth, seam, adapter, leverage, locality. `/redgreen` and `/foundation-check` both assume you speak it.
 
-## Vocabulary underneath
+## Boundaries between phases
 
-Two model-invoked references that run *beneath* the other skills — each the single source of truth for its vocabulary. Reach for them directly when the **words**, not the process, are the problem; or let the skills above pull them in.
+Five ways to end a phase, and the fuzziest call in this whole map: **Continue** (free), **`/clear`** (empty the window), **`/relay`** (a portable file — new harness, new directory, a colleague, or a mid-phase side quest), a **subagent** (AFK-scoped work, its own window, a report back), or **`/compact`** (the default, and deliberately the last resort rather than the first).
 
-- **`/lexicon`** — sharpen the project's *domain* language: challenge a fuzzy term, resolve an overloaded word ("account" doing three jobs), record a hard-to-reverse decision as an ADR. It's the active discipline `/cross-examine` drives to keep `CONTEXT.md` a clean glossary.
-- **`/workbench`** — the deep-module vocabulary (module, interface, depth, seam, adapter, leverage, locality) for designing a module's *shape*: a lot of behaviour behind a small interface at a clean seam. `/redgreen` and `/foundation-check` both speak it.
+[BOUNDARY-TREE.md](BOUNDARY-TREE.md) has the ordered walk through all five, and the case for why Continue gets ruled out first. The decision belongs at the boundary — mid-phase, just continue, or split what's left to a subagent.
 
-## Phase boundaries
+## Off the spine entirely
 
-A **phase** is a chunk of work inside a session — the grilling, the implementation, the QA. At the **boundary** between two of them you have five options, and picking between them is the fuzziest decision in this whole map:
+- **`/interrogate`** — `/cross-examine`'s stateless twin: same interview, nothing saved, no `CONTEXT.md`. For when there's no working directory to leave a trail in — a plan, a design, a piece of writing. Inside a repo, `/cross-examine` is strictly the better pick.
+- **`/interview`** — the primitive itself, unwrapped: rounds, the frontier, facts are the agent's job, decisions are yours. `/interrogate`, `/cross-examine`, `/intake`, `/trailmap`, and `/foundation-check` all run it under the hood.
+- **`/peacemaker`** — an in-progress merge or rebase conflict, resolved hunk by hunk by traced intent, never by `--abort`. Reach for it mid-conflict; it's on no flow.
+- **`/sketch`** — throwaway code built to answer exactly one design question. "Throwaway" constrains how it's written, not its fate: the answer folds back into the real code, and the sketch itself survives as a primary source on a `prototype/<name>` branch, linked from the implementation ticket. It's the spine's step-2 detour, but works any time a design question resists paper.
+- **`/scout`** — reading legwork handed to a background agent: it chases primary sources and leaves a cited Markdown file behind while you keep working. What it produces feeds `/cross-examine`; it doesn't replace the thinking.
+- **`/envoy`** — for when the blocker lives in someone *else's* head. Writes them a questionnaire — the inverse of `/interrogate`: it interviews you about the send (who, what you need back), not the subject. What comes back feeds `/cross-examine` or `/blueprint`.
+- **`/handrail`** — for steps only a human can take: provisioning, credentials, a third-party dashboard, a one-off cutover. Generates an interactive script that opens each URL, captures each value, writes it to `.env` and GitHub secrets. Model-invoked — the agent reaches for it the moment it hits a wall only a human can cross.
+- **`/clarify`** — fired mid-conversation when something you just said didn't land; re-pitches it in plain English using the `CONTEXT.md` vocabulary. The after-the-fact fix, where `/cross-examine` is the upfront one — a shared language agreed early is what keeps the jargon from showing up at all.
+- **`/mentor`** — a concept learned over several sessions, the working directory doubling as the notebook.
+- **`/styleguide`** — how to write anything meant for an agent to read: skills, AGENTS.md, any doc reached by a pointer.
 
-- **Continue** — stay put. Costs nothing, loses nothing.
-- **`/clear`** — empty the window, when nothing here matters to what's next.
-- **`/relay`** — write a portable markdown file. Narrow: only for a **new harness**, a **new directory**, a **colleague**, or forking a side task **mid-phase**. What it buys is portability.
-- **Subagent** — send a tightly-scoped task to its own window and get a report back.
-- **`/compact`** — compress this context and seed a fresh session with it. The **default**, at the bottom of the tree rather than the first reach.
+## Before any of this
 
-Read [PHASE-BOUNDARIES.md](PHASE-BOUNDARIES.md) for the ordered tree — the five questions, the reasoning behind each branch, and why the primary-source cost makes **Continue** the one to rule out first. Make the decision **at** a boundary; mid-phase, continue or split the rest into subagents.
-
-## Standalone
-
-Off the main flow entirely.
-
-- **`/interrogate`** — the same relentless interview as `/cross-examine`, but **stateless**: it saves nothing locally and builds no `CONTEXT.md`. Reach for it when you are **not working in a working directory** — sharpening a plan, a design, a piece of writing, anything with no repo under it. If you are in a working directory, use `/cross-examine` instead: it runs the same interview and leaves a paper trail, so it is strictly the better one.
-- **`/interview`** — the interview primitive itself: rounds, the frontier, facts are the agent's job and decisions are yours. `/interrogate` and `/cross-examine` are the two named ways in, and `/intake`, `/trailmap` and `/foundation-check` all run it internally. Reach for it directly only when you want the interview with no wrapper around it.
-- **`/peacemaker`** — work an in-progress merge or rebase conflict hunk by hunk, resolving by **intent** traced to each side's primary source rather than by picking lines, then finish the operation. It never runs `--abort`. Standalone and off every flow: reach for it when you are already mid-conflict.
-- **`/sketch`** — a small, throwaway program that answers one design question: does this state model feel right, or what should this UI look like. Throwaway is a constraint on how the code is written, not a promise to destroy it: the answer folds into the real code, and the prototype itself is kept as a **primary source** on a `prototype/<name>` branch out of main, pointed at from the implementation issue. It's the detour in step 2 of the main flow, but reach for it any time a design question is hard to settle on paper.
-- **`/scout`** — delegate reading legwork to a **background agent**: it investigates a question against **primary sources**, then leaves a cited Markdown file in the repo. Keep working while it reads. The file it produces is something to take *into* the main flow at `/cross-examine` — research feeds the thinking, it doesn't replace it.
-- **`/envoy`** — when the thing blocking you isn't in your head or the codebase but in **someone else's**, this writes them a questionnaire to fill in. It's the inverse of `/interrogate`: instead of interviewing you about the subject, it interviews you about the **send** — who it's going to, what you need back — and aims the questions at the gap. What comes back is material for `/cross-examine` or `/blueprint`.
-- **`/handrail`** — for the steps only a **human** can take: provisioning infrastructure, setting up credentials or CI secrets, clicking through an unfamiliar third-party dashboard, running a one-off migration or cutover. It generates an interactive bash script that opens each URL, captures each value, and writes it into `.env` and GitHub secrets — so the procedure stops being something you re-explain to an agent every time. Model-invoked, so the agent reaches for it the moment it hits a wall only you can pass. If the agent could just do it itself, it should; this is for where a human is genuinely in the loop.
-- **`/clarify`** — the corrective for a message that didn't land. Use it mid-conversation, inside any other skill, and the agent re-pitches what it just said with the context you were missing, in plain English, using the `CONTEXT.md` vocabulary. It works after the fact; `/cross-examine` is the upfront cure, because a shared language agreed early is what stops the jargon arriving at all.
-- **`/mentor`** — learn a concept over multiple sessions, using the current directory as a stateful workspace.
-- **`/styleguide`** — reference for writing documents agents consume: skills, AGENTS.md, pointed-at docs.
-
-## Precondition
-
-**`/bootstrap`** — run before your first engineering flow to configure the issue tracker, triage labels, and doc layout the other skills assume. Custom issue trackers also work.
+**`/bootstrap`** — run once, before the first engineering flow in a repo, to set the issue tracker, triage labels, and doc layout everything above assumes. Custom trackers work too.

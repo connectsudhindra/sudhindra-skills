@@ -4,12 +4,12 @@ description: "Implement a piece of work based on a spec or set of tickets."
 disable-model-invocation: true
 ---
 
-Implement the work described by the user in the spec or tickets.
+Build what the spec or tickets describe.
 
-Use /redgreen where possible, at pre-agreed seams.
+Drive `/redgreen` at whatever seams were already agreed — don't invent new ones mid-build.
 
-Run typechecking regularly, single test files regularly, and the full test suite once at the end.
+Typecheck often. Run the single test file you're working against often. Run the whole suite once, at the end, not before.
 
-Once done, use /gatekeeper to review the work.
+When it's done, hand it to `/gatekeeper` before you consider it done — that's the review gate, not optional polish.
 
-Commit your work to the current branch.
+Commit to the current branch once `/gatekeeper` is satisfied.

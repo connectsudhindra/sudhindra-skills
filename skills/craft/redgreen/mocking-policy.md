@@ -1,4 +1,4 @@
-# When to Mock
+# Mocking Policy
 
 Mock at **system boundaries** only:
 

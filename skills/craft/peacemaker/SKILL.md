@@ -3,12 +3,12 @@ name: peacemaker
 description: "Use when you need to resolve an in-progress git merge/rebase conflict."
 ---
 
-1. **See the current state** of the merge/rebase. Check git history, and the conflicting files.
+1. **Survey the state.** Where the merge or rebase currently stands, git history on both sides, and every file still in conflict.
 
-2. **Find the primary sources** for each conflict. Understand deeply why each change was made, and what the original intent was. Read the commit messages, check the PRs, check original issues/tickets.
+2. **Trace each conflict to its primary source.** Not just what changed — why. Commit messages, the PR it came from, the issue behind it. Understand the intent before touching a line.
 
-3. **Resolve each hunk.** Preserve both intents where possible. Where incompatible, pick the one matching the merge's stated goal and note the trade-off. Do **not** invent new behaviour. Always resolve; never `--abort`.
+3. **Resolve hunk by hunk, preserving both intents wherever they're compatible.** Where they genuinely aren't, pick whichever matches the merge's stated goal and write down the trade-off you made. Never invent behavior neither side asked for. Every hunk gets resolved — `--abort` is off the table.
 
-4. Discover the project's **automated checks** and run them — typically typecheck, then tests, then format. Fix anything the merge broke.
+4. **Run whatever automated checks this project already has** — typecheck, tests, format, in that order is typical. Fix anything the merge itself broke.
 
-5. **Finish the merge/rebase.** Stage everything and commit. If rebasing, continue the rebase process until all commits are rebased.
+5. **Close it out.** Stage everything, commit. Mid-rebase, keep running `rebase --continue` until every commit in the sequence has landed.

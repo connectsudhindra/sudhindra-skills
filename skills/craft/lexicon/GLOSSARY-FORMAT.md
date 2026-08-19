@@ -1,4 +1,4 @@
-# CONTEXT.md Format
+# Glossary Format
 
 ## Structure
 

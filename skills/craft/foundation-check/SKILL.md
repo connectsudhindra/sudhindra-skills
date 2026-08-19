@@ -4,68 +4,49 @@ description: Scan a codebase for deepening opportunities, present them as a visu
 disable-model-invocation: true
 ---
 
-# Improve Codebase Architecture
+# Foundation Check
 
-Surface architectural friction and propose **deepening opportunities** — refactors that turn shallow modules into deep ones. The aim is testability and AI-navigability.
+Surfaces architectural friction and proposes **deepening opportunities** — refactors that turn shallow modules into deep ones, aimed at testability and AI-navigability.
 
-This command is _informed_ by the project's domain model and built on a shared design vocabulary:
+Two things this skill leans on before it starts: call the Skill tool with "workbench" for the architecture vocabulary it speaks throughout — **module**, **interface**, **depth**, **seam**, **adapter**, **leverage**, **locality** — plus its principles (the deletion test, "the interface is the test surface," "one adapter is a hypothetical seam, two is a real one"). Use these words exactly; don't drift into "component," "service," "API," or "boundary" instead. And read `CONTEXT.md` for the names good seams already have, and the ADRs under `docs/adr/` for decisions this run shouldn't re-litigate.
 
-- Call the Skill tool with "codebase-design" for the architecture vocabulary (**module**, **interface**, **depth**, **seam**, **adapter**, **leverage**, **locality**) and its principles (the deletion test, "the interface is the test surface", "one adapter = hypothetical seam, two = real"). Use these terms exactly in every suggestion — don't drift into "component," "service," "API," or "boundary."
-- The domain language in `CONTEXT.md` gives names to good seams; ADRs in `docs/adr/` record decisions this command should not re-litigate.
+## Where to look
 
-## Process
+Scope before scanning — this is a YAGNI call. Deepening pays off on the parts of the codebase that are still actively changing, so weight recency: if the user named a direction — a module, a subsystem, a pain point — take it and skip straight past the inference below. Otherwise walk back through `git log --oneline` far enough to find real hot spots — files and areas that keep recurring — and let those pull your attention first. Scattered changes with no clear hot spot mean widen the net instead of guessing.
 
-### 1. Explore
+Read `CONTEXT.md` and any ADRs in the area before spawning a sub-agent to actually walk the code. No rigid heuristics here — explore organically, and pay attention to friction:
 
-**Scope before you scan — YAGNI.** Deepening a module pays off by making future changes to it easier, so put extra weight on the parts of the codebase that have recently changed. Decide *where* to look before you look:
+- Understanding one concept requires bouncing between many small modules
+- A module is **shallow** — its interface is nearly as complex as what's behind it
+- Pure functions got extracted purely for testability, while the real bugs still hide in how they're *called* (no **locality**)
+- Tightly-coupled modules leak state or behavior across their own seam
+- Something's untested, or hard to test through the interface it currently has
 
-- If the user named a direction — a module, a subsystem, a pain point — take it, and skip the inference below.
-- Otherwise, walk back a good stretch of the commit history (`git log --oneline`) to find the codebase's hot spots — the files and areas that keep coming up — and let those paths pull your attention first. If the changes are scattered with no clear hot spot, widen the net.
+Run the **deletion test** on anything that looks shallow: deleting it — does complexity concentrate somewhere, or just relocate? "Concentrates" is the signal worth reporting.
 
-Read the project's domain glossary (`CONTEXT.md`) and any ADRs in the area you're touching first.
+## What you hand back
 
-Then spawn a sub-agent to walk the codebase. Don't follow rigid heuristics — explore organically and note where you experience friction:
+Write a self-contained HTML file to the OS temp directory — nothing lands in the repo itself. Resolve the temp path from `$TMPDIR` (falling back to `/tmp`, or `%TEMP%` on Windows), write to `<tmpdir>/architecture-review-<timestamp>.html` so every run gets its own file, then open it (`xdg-open` / `open` / `start`, by platform) and read the absolute path back to the user.
 
-- Where does understanding one concept require bouncing between many small modules?
-- Where are modules **shallow** — interface nearly as complex as the implementation?
-- Where have pure functions been extracted just for testability, but the real bugs hide in how they're called (no **locality**)?
-- Where do tightly-coupled modules leak across their seams?
-- Which parts of the codebase are untested, or hard to test through their current interface?
+Build it with **Tailwind via CDN** for layout, **Mermaid via CDN** for anything graph-shaped — call graphs, dependencies, sequences — and hand-built CSS/SVG for the more editorial visuals (mass diagrams, cross-sections, collapse animations). Every candidate gets a **before/after visualization**; lean visual, not just prose.
 
-Apply the **deletion test** to anything you suspect is shallow: would deleting it concentrate complexity, or just move it? A "yes, concentrates" is the signal you want.
+Each candidate's card carries: **Files** (which modules are involved), **Problem** (why the current shape causes friction), **Solution** (plain-English description of the change), **Benefits** (framed in locality and leverage, plus what improves for testing), a side-by-side custom **before/after diagram**, and a **Recommendation strength** badge — `Strong`, `Worth exploring`, or `Speculative`. Close the report with a **Top recommendation** section naming which one to tackle first and why.
 
-### 2. Present candidates as an HTML report
+Talk about the domain in `CONTEXT.md`'s terms and the architecture in `/workbench`'s — if `CONTEXT.md` names "Order," the card says "the Order intake module," never "the FooBarHandler" or "the Order service."
 
-Write a self-contained HTML file to the OS temp directory so nothing lands in the repo. Resolve the temp dir from `$TMPDIR`, falling back to `/tmp` (or `%TEMP%` on Windows), and write to `<tmpdir>/architecture-review-<timestamp>.html` so each run gets a fresh file. Open it for the user — `xdg-open <path>` on Linux, `open <path>` on macOS, `start <path>` on Windows — and tell them the absolute path.
+A candidate that contradicts an existing ADR is worth surfacing only when the friction is real enough to justify reopening that ADR — flag it plainly (a warning callout: *"contradicts ADR-0007 — but worth reopening because…"*) rather than silently listing every refactor an ADR technically forbids.
 
-The report uses **Tailwind via CDN** for layout and styling, and **Mermaid via CDN** for diagrams where a graph/flow/sequence reliably communicates the structure. Mix Mermaid with hand-crafted CSS/SVG visuals — use Mermaid when relationships are graph-shaped (call graphs, dependencies, sequences), and hand-built divs/SVG when you want something more editorial (mass diagrams, cross-sections, collapse animations). Each candidate gets a **before/after visualisation**. Be visual.
+[REPORT-TEMPLATE.md](REPORT-TEMPLATE.md) has the full HTML scaffold, diagram patterns, and styling.
 
-For each candidate, render a card with:
+Stop short of proposing interfaces at this stage. Once the file's written, just ask: "Which of these would you like to explore?"
 
-- **Files** — which files/modules are involved
-- **Problem** — why the current architecture is causing friction
-- **Solution** — plain English description of what would change
-- **Benefits** — explained in terms of locality and leverage, and how tests would improve
-- **Before / After diagram** — side-by-side, custom-drawn, illustrating the shallowness and the deepening
-- **Recommendation strength** — one of `Strong`, `Worth exploring`, `Speculative`, rendered as a badge
+## After they pick one
 
-End the report with a **Top recommendation** section: which candidate you'd tackle first and why.
+Call the Skill tool with "interview" to walk the decision tree together — constraints, dependencies, the shape of the deepened module, what ends up behind the seam, which tests survive.
 
-**Use CONTEXT.md vocabulary for the domain, and the `/workbench` vocabulary for the architecture.** If `CONTEXT.md` defines "Order," talk about "the Order intake module" — not "the FooBarHandler," and not "the Order service."
+Domain side effects happen inline, as decisions actually crystallize — call the Skill tool with "lexicon" to keep the model current while you go:
 
-**ADR conflicts**: if a candidate contradicts an existing ADR, only surface it when the friction is real enough to warrant revisiting the ADR. Mark it clearly in the card (e.g. a warning callout: _"contradicts ADR-0007 — but worth reopening because…"_). Don't list every theoretical refactor an ADR forbids.
-
-See [HTML-REPORT.md](HTML-REPORT.md) for the full HTML scaffold, diagram patterns, and styling guidance.
-
-Do NOT propose interfaces yet. After the file is written, ask the user: "Which of these would you like to explore?"
-
-### 3. Grilling loop
-
-Once the user picks a candidate, call the Skill tool with "grilling" to walk the decision tree with them — constraints, dependencies, the shape of the deepened module, what sits behind the seam, what tests survive.
-
-Side effects happen inline as decisions crystallize — call the Skill tool with "domain-modeling" to keep the domain model current as you go:
-
-- **Naming a deepened module after a concept not in `CONTEXT.md`?** Add the term to `CONTEXT.md`. Create the file lazily if it doesn't exist.
-- **Sharpening a fuzzy term during the conversation?** Update `CONTEXT.md` right there.
-- **User rejects the candidate with a load-bearing reason?** Offer an ADR, framed as: _"Want me to record this as an ADR so future architecture reviews don't re-suggest it?"_ Only offer when the reason would actually be needed by a future explorer to avoid re-suggesting the same thing — skip ephemeral reasons ("not worth it right now") and self-evident ones.
-- **Want to explore alternative interfaces for the deepened module?** Call the Skill tool with "codebase-design" and use its design-it-twice parallel sub-agent pattern.
+- Naming the deepened module after a concept `CONTEXT.md` doesn't have yet? Add it (create the file lazily if it doesn't exist).
+- Sharpened a fuzzy term mid-conversation? Update `CONTEXT.md` right there, not later.
+- User rejects the candidate for a load-bearing reason? Offer an ADR — *"Want me to record this so future reviews don't re-suggest it?"* — but only when a future explorer would actually need the reasoning to avoid repeating it; skip ephemeral reasons ("not worth it right now") and self-evident ones.
+- Want alternative interfaces for the deepened module explored side by side? Call the Skill tool with "workbench" and use its design-it-twice parallel sub-agent pattern.

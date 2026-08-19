@@ -4,19 +4,13 @@ description: Turn the current conversation into a spec and publish it to the pro
 disable-model-invocation: true
 ---
 
-This skill takes the current conversation context and codebase understanding and produces a spec. Do NOT interview the user — just synthesize what you already know.
+Synthesis, not interview. Everything this skill writes down should already be sitting in the conversation and the codebase — if it isn't, that's a `/cross-examine` gap to go fix, not something to guess at here.
 
-The issue tracker and triage label vocabulary should have been provided to you. If not, tell the user to run `/bootstrap`.
+The issue tracker and triage label vocabulary should already be available to you. If they aren't, send the user to `/bootstrap` first.
 
-## Process
+**Before writing anything:** explore the repo enough to know its current shape, if you haven't already — use the project's domain glossary throughout, and respect whatever ADRs already govern the area you're about to touch. Then sketch the seam this feature will be tested at. Prefer a seam that already exists over inventing one; if a new seam is genuinely needed, put it as high as it'll go. Every extra seam is a cost — one, for the whole feature, is the number to aim for. Show the user the seam before moving on; it should match what they had in mind.
 
-1. Explore the repo to understand the current state of the codebase, if you haven't already. Use the project's domain glossary vocabulary throughout the spec, and respect any ADRs in the area you're touching.
-
-2. Sketch out the seams at which you're going to test the feature. Existing seams should be preferred to new ones. Use the highest seam possible. If new seams are needed, propose them at the highest point you can. The fewer seams across the codebase, the better - the ideal number is one.
-
-Check with the user that these seams match their expectations.
-
-3. Write the spec using the template below, then publish it to the project issue tracker. Apply the `ready-for-agent` triage label - no need for additional triage.
+With that settled, write the spec below and publish it to the tracker, labeled `ready-for-agent` — it doesn't need another pass through `/intake`.
 
 <spec-template>
 

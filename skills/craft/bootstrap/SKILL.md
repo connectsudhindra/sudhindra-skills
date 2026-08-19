@@ -4,9 +4,9 @@ description: Configure this repo for the engineering skills — set up its issue
 disable-model-invocation: true
 ---
 
-# Setup Sudhindra's Skills
+# Bootstrap
 
-Scaffold the per-repo configuration that the engineering skills assume:
+Scaffold the per-repo configuration every `craft/` skill assumes is already there:
 
 - **Issue tracker** — where issues live (GitHub by default; local markdown is also supported out of the box)
 - **Triage labels** — the strings used for the five canonical triage roles
@@ -106,7 +106,7 @@ Then write the docs files using the seed templates in this skill folder as a sta
 - [tracker-github.md](./tracker-github.md) — GitHub issue tracker
 - [tracker-gitlab.md](./tracker-gitlab.md) — GitLab issue tracker
 - [tracker-local.md](./tracker-local.md) — local-markdown issue tracker
-- [triage-labels.md](./label-map-seed.md) — label mapping (only if `intake` is installed)
+- [label-map-seed.md](./label-map-seed.md) — label mapping (only if `intake` is installed)
 - [domain.md](./domain-doc-seed.md) — domain doc consumer rules + layout
 
 For "other" issue trackers, write `docs/agents/issue-tracker.md` from scratch using the user's description.

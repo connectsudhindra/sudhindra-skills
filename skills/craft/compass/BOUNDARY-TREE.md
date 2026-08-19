@@ -1,55 +1,49 @@
-# Phase boundaries
+# The boundary tree
 
-A **phase** is a chunk of work inside a session — the grilling, the implementation, the QA. The definition is fuzzy on purpose: a phase ends when you think *"ok, we're done with that"*.
+A **phase** is a chunk of work inside one session — grilling, implementing, QA — and it's deliberately fuzzy: a phase ends the moment you think *"okay, that part's done."* The **boundary** is the gap right after that moment, and it's the only place any of this decision belongs. Mid-phase there's nothing to decide — you either keep going or peel off a subagent. Compacting mid-phase is how an agent loses the thread it was just holding.
 
-The **phase boundary** is the gap between two phases, and it is the only place this decision belongs. Mid-phase there is no decision to make — continue, or split the work that's left into subagents. Compacting mid-phase makes the agent lose the thread.
+Five moves exist at a boundary: **Continue**, **`/clear`**, **`/relay`**, hand off to a **subagent**, or **`/compact`**. Walk the questions below in order, at the boundary, and take the first **yes**.
 
-## The five options
+## 1. Can you just continue?
 
-| Option       | What it does                                                    |
-| ------------ | --------------------------------------------------------------- |
-| **Continue** | Stay in the session. No context switch at all.                    |
-| **`/clear`** | Empty the context window and start from nothing.                  |
-| **`/relay`** | Write a portable markdown file and seed a session anywhere with it. |
-| **Subagent** | Send the task to its own context window and get a report back.     |
-| **`/compact`** | Compress this context and seed a fresh session with the summary.  |
+Ask it before anything else, because Continue is free — no context switch, nothing lost. Two things make the answer yes: the next phase needs *this* phase as a primary source, or the smart zone (~150k tokens of sharp reasoning on current models) still has room for what's next. Grilling into implementation is the standard case — the build wants the reasoning itself, not a summary of it, so continuing costs nothing and loses nothing. Rule this out before considering anything more expensive.
 
-## The tree
+## 2. Is everything here disposable?
 
-Work top to bottom at the boundary. The first **yes** wins.
+Not "did it go well" — is the exploration, the dead ends, the decisions all irrelevant to what happens next? If so, **`/clear`**: the cheapest real move on the board, instant, and it hands the whole window back. It isn't even terminal — the cleared session stays resumable if you need to go back.
 
-**1. Can you continue in this session?** Two things make the answer yes: the next phase needs this phase as a **primary source**, or you have enough smart zone left (~150k tokens) for the next phase to fit. Grilling → implementation is the standard yes: the implementation wants the reasoning verbatim, not a summary of it. Continue costs nothing and loses nothing, so rule it out before anything else.
+Getting this one wrong is one-way, though. Clear a context that actually mattered and the **why** behind what you built is gone — no amount of reading the diff afterward brings it back.
 
-**2. Is the context irrelevant to what comes next?** Is everything in this session — the exploration, the decisions, the dead ends — disposable? If so, **`/clear`**. It is the cheapest move on the board: it takes no time and hands back the whole window. `/clear` also isn't terminal — the old session stays resumable.
+## 3. Does something need to travel?
 
-The cost of getting this wrong is one-way. Clear a *relevant* context and you lose the **why** behind what you built, and no amount of reading the diff back gets it returned.
+`/relay` is narrow by design — reach for it only when you're doing one of:
 
-**3. Do you need to hand off?** `/relay` is narrow. You need it only when you are:
+- switching harness (Claude → Codex),
+- moving to a new directory or repo,
+- handing the work to a colleague,
+- or splitting off a side task you found mid-phase, without derailing what you're already doing.
 
-- swapping to a **new harness** (Claude → Codex),
-- moving to a **new directory** or repo,
-- sending the work to a **colleague**,
-- or forking a side task you found **mid-phase** without derailing what you're doing.
+That's the entire list. What `/relay` buys is **portability** — a file that survives the trip. Nothing traveling means nothing to write.
 
-That list is the whole clause. What `/relay` buys is **portability** — a file that travels. If nothing is travelling, you don't need it.
+## 4. Can it run with you gone?
 
-**4. Can the task be done AFK?** Is it scoped tightly enough to run with you away from the keyboard, no steering? Then send it to a **subagent** and leave this session untouched. Automated review is the standard case: the agent reads the diff and reports, and you aren't needed while it does.
+Scoped tight enough to execute with no steering, no you in the loop? Send it to a **subagent** and leave this session exactly where it is. Automated review is the textbook case — it reads the diff, reports back, needs nothing from you while it works.
 
-**5. Otherwise, `/compact`.** Relevant context, same harness, same directory, and you need to stay in the loop — this is where the tree lands, and it lands here often. Pass it an instruction (`/compact we're going to QA this area`) so the summary keeps what the next phase needs.
+## 5. Otherwise: `/compact`
 
-`/compact` is the **default, not the first reach**. It sits at the bottom because the four questions above it are all cheaper or more precise. The failure mode when people start here is a fresh session that is confidently wrong about a decision the summary flattened.
+If you got this far — the context is relevant, the harness and directory aren't changing, and you need to stay in the loop — this is where you land, and it's where most boundaries land. Give it an instruction (`/compact we're moving into QA on this area`) so the summary keeps what the next phase actually needs.
 
-## Primary and secondary sources
+`/compact` sits at the **bottom** of this list on purpose, not the top. Everything above it is cheaper, or more precise, or both. The failure mode when people reach for it first is a fresh session that's confidently wrong about something the summary flattened into false certainty.
 
-Every move except **Continue** turns a **primary source** into a **secondary source** — the session as it happened, replaced by a summary of it. The trade is always the same shape:
+## Why order matters here: primary vs. secondary sources
 
-| Source                            | Information | Noise | Room to move |
-| --------------------------------- | ----------- | ----- | ------------ |
-| Primary (Continue)                | Full        | Lots  | Little       |
-| Secondary (`/compact`, `/relay`) | Lossy       | Less  | Lots         |
+Every move except Continue turns a **primary source** — the session as it actually happened — into a **secondary source**: a summary of it. The trade is always the same shape:
 
-This is why question 1 comes first. You only pay the lossiness when staying costs more than it saves.
+- **Primary** (Continue): all the information, all the noise, very little room left to move.
+- **Secondary** (`/compact`, `/relay`): lossy, quieter, lots of room.
 
-## These are judgement calls
+That's the whole reason question 1 comes first — lossiness is a cost, and you only pay it once staying costs more than it saves.
 
-The questions are not objective — each has taste in it, and the same boundary can go two ways on two days. The value is in asking them **in order**, at the boundary rather than in the middle of the work.
+## None of this is mechanical
+
+Every one of these five questions has taste built into it, and the same boundary can reasonably go two different ways on two different days. What actually matters is asking them **in this order**, **at the boundary** — not mid-sentence, and not skipped because `/compact` felt like the obvious default.

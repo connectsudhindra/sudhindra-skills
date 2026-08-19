@@ -3,10 +3,10 @@ name: scout
 description: Investigate a question against high-trust primary sources and capture the findings as a Markdown file in the repo. Use when the user wants a topic researched, docs or API facts gathered, or reading legwork delegated to a background agent.
 ---
 
-Spin up a **background agent** to do the research, so you keep working while it reads.
+Send a **background agent** out to read, so the foreground session stays free to keep working.
 
-Its job:
+Its brief:
 
-1. Investigate the question against **primary sources** — official docs, source code, specs, first-party APIs — not a secondary write-up of them. Follow every claim back to the source that owns it.
-2. Write the findings to a single Markdown file, citing each claim's source.
-3. Save it where the repo already keeps such notes; match the existing convention, and if there is none, put it somewhere sensible and say where.
+1. Chase the question to **primary sources** — official docs, the actual source code, specs, first-party APIs — never a secondary summary of one of those. Every claim gets traced back to whoever actually owns it.
+2. Write what it found into one Markdown file, each claim carrying its source.
+3. File it where this repo already keeps notes like this; if there's no existing convention, pick somewhere sensible and say so out loud.
