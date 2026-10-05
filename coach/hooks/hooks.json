@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$CLAUDE_PLUGIN_ROOT/coach/hooks/on_session_start.py",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/coach/hooks/on_session_start.py\"",
             "timeout": 8
           }
         ]
@@ -17,7 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$CLAUDE_PLUGIN_ROOT/coach/hooks/on_prompt_submit.py",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/coach/hooks/on_prompt_submit.py\"",
             "timeout": 6
           }
         ]
@@ -28,7 +28,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$CLAUDE_PLUGIN_ROOT/coach/hooks/on_session_end.py",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/coach/hooks/on_session_end.py\"",
             "timeout": 1
           }
         ]

@@ -20,7 +20,7 @@ DEFAULTS: dict[str, Any] = {
     "api_base_url": "http://localhost:8787",
     "user_email": None,
     "user_name": None,
-    "coaching_mode": "in_session",
+    "coaching_mode": "end_of_session",
     "enabled": True,
     "block_floor": 35,
     "api_token": None,

@@ -6,7 +6,7 @@ disable-model-invocation: true
 
 # Levelset
 
-The `coach/` system starts working the moment this plugin is installed — the first `SessionStart` after install writes sane local defaults (a `localhost` API, `in_session` coaching, your git email) with no conversation required. This skill exists for the one case that setup can't guess: pointing your machine at a **shared team backend** instead of your own local one, or changing how coaching reaches you once you're up and running.
+The `coach/` system starts working the moment this plugin is installed — the first `SessionStart` after install writes sane local defaults (a `localhost` API, `end_of_session` coaching, your git email) with no conversation required. This skill exists for the one case that setup can't guess: pointing your machine at a **shared team backend** instead of your own local one, or changing how coaching reaches you once you're up and running.
 
 Skip this entirely if you're using the system solo, locally, with the defaults. Run it when you want to join a team's shared instance, or you want a mode other than the default.
 
@@ -28,8 +28,8 @@ If the user gives a URL other than localhost, `curl` its `/health` endpoint befo
 
 **4. Ask the coaching mode.** Three options, plainly stated trade-offs:
 
-- **`in_session`** (the default) — a weak prompt gets blocked immediately with a GCCF breakdown; resubmitting it unchanged sends it through anyway. Fast feedback, but a block does erase what you typed until you resend it.
-- **`end_of_session`** — nothing interrupts you mid-session; a summary of the session's scores and the single weakest dimension shows up at the start of your *next* session instead.
+- **`in_session`** — a weak prompt gets blocked immediately with a GCCF breakdown; resubmitting it unchanged sends it through anyway. Fast feedback, but a block does erase what you typed until you resend it.
+- **`end_of_session`** (the default) — nothing interrupts you mid-session; a summary of the session's scores and the single weakest dimension shows up at the start of your *next* session instead.
 - **`off`** — no scoring, no blocking, no summaries. The hooks still run but exit immediately without doing anything.
 
 **5. If `in_session`, ask about the block floor.** Default 35/100. Lower means fewer interruptions and weaker prompts slip through unflagged; higher means more friction but a tighter bar. Most people should just take the default.

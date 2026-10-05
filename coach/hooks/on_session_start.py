@@ -43,8 +43,9 @@ def main() -> int:
             pass
         context_lines.append(
             "Tell the user, once, at the start of your first reply: "
-            "\"GCCF prompt coaching is now active (mode: in_session) -- run the "
-            "`levelset` skill any time to change the mode or turn it off.\""
+            "\"GCCF prompt coaching is now active (mode: end_of_session -- nothing "
+            "is blocked; a score summary shows up next session). Run the `levelset` "
+            "skill any time to change the mode or turn it off.\""
         )
     else:
         cfg = hook_config.load_config()
