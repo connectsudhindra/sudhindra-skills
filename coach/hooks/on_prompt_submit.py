@@ -43,6 +43,14 @@ def _is_continuation(prompt: str) -> bool:
     return any(lower == p or lower.startswith(p + " ") for p in _CONTINUATION_PREFIXES)
 
 
+def _is_slash_command(prompt: str) -> bool:
+    # An explicit skill/command invocation hands its args to that skill --
+    # often one (like /interview) whose whole job is sharpening a rough ask.
+    # Gating it on GCCF would block the very tool meant to fix the prompt.
+    stripped = prompt.lstrip()
+    return stripped.startswith("/") and len(stripped) > 1 and not stripped[1].isspace()
+
+
 def _normalize(text: str) -> str:
     return " ".join(text.split()).strip().lower()
 
@@ -103,7 +111,7 @@ def main() -> int:
     if not prompt_text.strip():
         return 0
 
-    is_scorable = not _is_continuation(prompt_text)
+    is_scorable = not (_is_continuation(prompt_text) or _is_slash_command(prompt_text))
 
     score = None
     if is_scorable:

@@ -24,7 +24,7 @@ CREATE TABLE users (
   email          TEXT NOT NULL UNIQUE,
   team_id        UUID REFERENCES teams(id),
   current_level  SMALLINT NOT NULL REFERENCES levels(level_num) DEFAULT 1,
-  coaching_mode  TEXT NOT NULL DEFAULT 'in_session'
+  coaching_mode  TEXT NOT NULL DEFAULT 'end_of_session'
                    CHECK (coaching_mode IN ('in_session', 'end_of_session', 'off')),
   is_admin       BOOLEAN NOT NULL DEFAULT false,
   created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
